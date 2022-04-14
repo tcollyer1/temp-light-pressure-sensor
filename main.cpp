@@ -10,10 +10,158 @@
 #include "azure_c_shared_utility/xlogging.h"
 #include <cstring>
 #include <string.h>
+#include <iostream>
+#include <string>
+#include "SDBlockDevice.h"
+#include "FATFileSystem.h"
+
+
 using namespace uop_msb;
+using namespace std;
 
 extern void azureDemo();
 extern NetworkInterface *_defaultSystemNetwork;
+
+DigitalOut redLED(LED1);
+AnalogIn ldr(AN_LDR_PIN);
+
+
+// Sensor data class - for requirement 1
+class SensorData {
+    private:
+        float temperature;
+        float pressure;
+        float lightLevel;
+
+    public:
+        void setSensorReadings() {
+            EnvSensor sensor;
+            float temp, pres, light;
+
+            float temps[50];
+            float pressures[50];
+            float lightLevels[50];
+
+            float tempSum = 0.0f;
+            float presSum = 0.0f;
+            float lightSum = 0.0f;
+
+            for (int i = 0; i < 50; i++) { // Take 50 samples to minimise jitter and find the average.
+                temps[i] = sensor.getTemperature();
+                pressures[i] = sensor.getPressure();
+                lightLevels[i] = ldr;
+
+                tempSum += temps[i];
+                presSum += pressures[i];
+                lightSum += lightLevels[i];
+            }
+
+            temperature = tempSum / 50;
+            pressure = presSum / 50;
+            lightLevel = lightSum / 50;
+        }
+
+        float fetchTemperature() {
+            return temperature;
+        }
+
+        float fetchPressure() {
+            return pressure;
+        }
+
+        float fetchLightLevel() {
+            return lightLevel;
+        }
+};
+
+
+#ifdef USE_SD_CARD
+#include "SDBlockDevice.h"
+#include "FATFileSystem.h"
+#endif
+SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
+
+// Buffer class - for requirement 3
+class Buffer {
+    private:
+        Queue<SensorData, 10> buffer;
+
+    public:
+        Buffer() {
+
+        }
+
+        void writeToBuffer(SensorData item) {
+            // Write to FIFO buffer
+            bool sent = buffer.try_put(&item);
+
+            // Buffer is full - light red LED
+            if (!sent) {
+                error("Buffer is full\n");
+                // TODO: red LED
+            }
+        }
+
+        void readFromBuffer() {
+            SensorData* values;
+            bool success = buffer.try_get_for(10s, &values); // Blocks for 10 secs if buffer empty
+
+            if (success) {               
+                // Write value to the file.
+                int err;
+
+                err = card.init();
+
+                if (0 != err) {
+                    printf("Card init failed: %d\n",err);
+                }
+
+                else {
+                    FATFileSystem fs("sd", &card);
+                    FILE *fp = fopen("/sd/test.txt","w");
+
+                    if(fp == NULL) {
+                        error("Could not open file for write\n");
+                        card.deinit();
+
+                    } else {
+                        // Add readings to file
+                        for (int i = 0; i <= buffer.count(); i++) {
+                            fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel());
+                        }
+                        
+                        fclose(fp);
+                        printf("SD write done...\n");
+                        card.deinit();
+                    }
+                }
+            }
+
+            else {
+                cout << "Timeout...\n";
+            }
+        }
+};
+
+
+// Timers
+Ticker timer;
+Ticker timer2;
+
+// Function declarations
+void getSensorData();
+void setFlags();
+void setFlags2();
+void readBuffer();
+
+// Queue
+Queue<float, 10> queue; // For now just send temperature.
+Buffer valuesBuffer;
+
+// Threads
+Thread t1(osPriorityAboveNormal);
+// Thread t2(osPriorityNormal);
+Thread t2(osPriorityNormal);
 
 bool connect()
 {
@@ -50,12 +198,22 @@ bool setTime()
     return true;
 }
 
+
+
 int main() {
 
     // START - UNCOMMENT THE FOLLOWING TWO LINES TO TEST YOUR BOARD AND SEE THE DEMO CODE WORKING
     //UOP_MSB_TEST  board;  //This class is purely for testing. Do no use it otherwise!!!!!!!!!!!
     //board.test();         //Look inside here to see how this works
     // END
+
+    timer.attach(&setFlags, 10s);
+    timer2.attach(&setFlags2, 60s);
+
+    //Buffer valuesBuffer;
+
+    t1.start(getSensorData);
+    t2.start(readBuffer);
 
     if (!connect()) return -1;
 
@@ -72,4 +230,53 @@ int main() {
     LogInfo("The demo has ended");
 
     return 0;
+}
+
+void getSensorData() {
+    SensorData data;
+
+    while (true) {
+        // Temperature, Light Levels & Pressure
+        float temp, pres, light;
+
+        data.setSensorReadings();
+
+        temp = data.fetchTemperature();
+        pres = data.fetchPressure();
+        light = data.fetchLightLevel();
+
+
+        ThisThread::flags_wait_any(1);
+        printf("\n10 secs passed, running sensor data collection!\n");
+
+        // Write to terminal for now.
+        cout << "Temperature: " << temp << "\n";
+        cout << "Pressure: " << pres << "\n";
+        cout << "Light levels: " << light << "\n";
+
+        // Write to buffer
+        valuesBuffer.writeToBuffer(data);
+    }
+}
+
+// #ifdef USE_SD_CARD
+// #include "SDBlockDevice.h"
+// #include "FATFileSystem.h"
+// #endif
+// SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
+
+void readBuffer() {
+    while (true) {
+        ThisThread::flags_wait_any(2);
+        printf("1 minute passed, trying to get buffer and write to file!\n");
+        valuesBuffer.readFromBuffer();
+    }
+}
+
+void setFlags() {
+    t1.flags_set(1);
+}
+
+void setFlags2() {
+    t2.flags_set(2);
 }
