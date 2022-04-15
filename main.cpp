@@ -15,14 +15,55 @@
 #include "SDBlockDevice.h"
 #include "FATFileSystem.h"
 
-
 using namespace uop_msb;
 using namespace std;
 
 extern void azureDemo();
 extern NetworkInterface *_defaultSystemNetwork;
 
-DigitalOut redLED(LED1);
+// Interface for red LED
+class ILED {
+    public:
+        virtual void lightOn() = 0;
+        virtual void lightOff() = 0;
+};
+
+// Class for Mbed red LED using interface
+class MbedLight : public ILED {
+    private:
+        DigitalOut led;
+
+    public:
+        MbedLight(PinName pin, int state) : led(pin, state) {
+
+        }
+
+        virtual void lightOn() {
+            led = 1;
+        }
+
+        virtual void lightOff() {
+            led = 0;
+        }
+};
+
+// Interface for ticker
+class ITick {
+    public:
+        virtual void attachFunc(void (*func1)(), std::chrono::microseconds time) = 0;
+};
+
+// Class for Mbed ticker using interface
+class MbedTicker : public ITick {
+    private:
+        Ticker tm;
+
+    public:
+        virtual void attachFunc(void (*func1)(), std::chrono::microseconds time) {
+            tm.attach(func1, time);
+        }
+};
+
 AnalogIn ldr(AN_LDR_PIN);
 
 
@@ -85,20 +126,28 @@ SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
 class Buffer {
     private:
         Queue<SensorData, 10> buffer;
+        ILED &redLED;
 
     public:
-        Buffer() {
-
-        }
+        Buffer(ILED &led) : redLED(led) {}
 
         void writeToBuffer(SensorData item) {
             // Write to FIFO buffer
             bool sent = buffer.try_put(&item);
 
-            // Buffer is full - light red LED
+            // Error occurred
             if (!sent) {
-                error("Buffer is full\n");
-                // TODO: red LED
+                printf("\n[!] Data could not be added to the buffer.\n");
+            }
+
+            else {
+                printf("Values added to buffer!\n");
+            }
+
+            // Buffer full, light red LED
+            if (buffer.full()) {
+                printf("Buffer is full!\n\n");
+                redLED.lightOn();
             }
         }
 
@@ -145,8 +194,12 @@ class Buffer {
 
 
 // Timers
-Ticker timer;
-Ticker timer2;
+MbedTicker tr1;
+MbedTicker tr2;
+
+ITick &timer = tr1;
+ITick &timer2 = tr2;
+
 
 // Function declarations
 void getSensorData();
@@ -154,13 +207,15 @@ void setFlags();
 void setFlags2();
 void readBuffer();
 
-// Queue
-Queue<float, 10> queue; // For now just send temperature.
-Buffer valuesBuffer;
+// Mbed class objects for LED
+MbedLight red(PC_2, 0);
+ILED &redLED = red;
+
+// Buffer
+Buffer valuesBuffer(redLED);
 
 // Threads
 Thread t1(osPriorityAboveNormal);
-// Thread t2(osPriorityNormal);
 Thread t2(osPriorityNormal);
 
 bool connect()
@@ -207,10 +262,8 @@ int main() {
     //board.test();         //Look inside here to see how this works
     // END
 
-    timer.attach(&setFlags, 10s);
-    timer2.attach(&setFlags2, 60s);
-
-    //Buffer valuesBuffer;
+    timer.attachFunc(&setFlags, 10s);
+    timer2.attachFunc(&setFlags2, 60s);
 
     t1.start(getSensorData);
     t2.start(readBuffer);
