@@ -9,6 +9,7 @@
 #include "NTPClient.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include <cstring>
+#include <ctime>
 #include <string.h>
 #include <iostream>
 #include <string>
@@ -34,9 +35,7 @@ class MbedLight : public ILED {
         DigitalOut led;
 
     public:
-        MbedLight(PinName pin, int state) : led(pin, state) {
-
-        }
+        MbedLight(PinName pin, int state) : led(pin, state) {}
 
         virtual void lightOn() {
             led = 1;
@@ -73,11 +72,24 @@ class SensorData {
         float temperature;
         float pressure;
         float lightLevel;
+        std::time_t dateTime;
+
+        std::time_t acquireDateTime() {
+            NTPClient ntp(_defaultSystemNetwork);
+            ntp.set_server("time.google.com", 123);
+            time_t timestamp = ntp.get_timestamp();
+            if (timestamp < 0) {
+                LogError("Failed to get the current time, error: %ud", timestamp);
+            }
+            // LogInfo("Time: %s", ctime(&timestamp));
+
+            return timestamp;
+        }
 
     public:
         void setSensorReadings() {
             EnvSensor sensor;
-            float temp, pres, light;
+            float temp, pres, light;            
 
             float temps[50];
             float pressures[50];
@@ -100,6 +112,7 @@ class SensorData {
             temperature = tempSum / 50;
             pressure = presSum / 50;
             lightLevel = lightSum / 50;
+            dateTime = acquireDateTime();
         }
 
         float fetchTemperature() {
@@ -112,6 +125,10 @@ class SensorData {
 
         float fetchLightLevel() {
             return lightLevel;
+        }
+
+        std::time_t fetchDateTime() {
+            return dateTime;
         }
 };
 
@@ -176,7 +193,9 @@ class Buffer {
                     } else {
                         // Add readings to file
                         for (int i = 0; i <= buffer.count(); i++) {
-                            fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel());
+                            time_t curr = values[i].fetchDateTime();
+
+                            fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel(), ctime(&curr));
                         }
                         
                         fclose(fp);
@@ -291,12 +310,14 @@ void getSensorData() {
     while (true) {
         // Temperature, Light Levels & Pressure
         float temp, pres, light;
+        std::time_t dateTime;
 
         data.setSensorReadings();
 
         temp = data.fetchTemperature();
         pres = data.fetchPressure();
         light = data.fetchLightLevel();
+        dateTime = data.fetchDateTime();
 
 
         ThisThread::flags_wait_any(1);
@@ -306,6 +327,7 @@ void getSensorData() {
         cout << "Temperature: " << temp << "\n";
         cout << "Pressure: " << pres << "\n";
         cout << "Light levels: " << light << "\n";
+        cout << "Date and time: " << ctime(&dateTime) << "\n";
 
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
