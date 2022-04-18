@@ -19,6 +19,8 @@
 // #include "SensorData.h"
 #include "Buffer.h"
 #include "MbedTicker.h"
+#include "MbedButton.h"
+#include "MbedTimer.h"
 
 using namespace uop_msb;
 using namespace std;
@@ -29,18 +31,22 @@ extern void azureDemo();
 // Timers
 MbedTicker tr1;
 MbedTicker tr2;
+MbedTicker tr3;
 
 ITick &timer = tr1;
 ITick &timer2 = tr2;
+ITick &timer3 = tr3;
 
 
 // Function declarations
 void getSensorData();
 void setFlags();
 void setFlags2();
+void setFlags3();
 void readBuffer();
 bool outsideThreshold(float t, float l, float p);
 void writeAlarmMsg();
+void waitForBtnPress();
 
 
 // Mbed class objects for LED
@@ -55,17 +61,22 @@ Buffer valuesBuffer(redLED);
 // Threads
 Thread t1(osPriorityAboveNormal);
 Thread t2(osPriorityNormal);
+Thread t3(osPriorityNormal);
 
 
 // Upper and lower limits for pressure, light and temperature
-const float TUpper = 22.0;
-const float TLower = 19.0;
+const float TUpper = 25.1; // was 22
+const float TLower = 25.0; // was 12
 
 const float PUpper = 1016.0;
 const float PLower = 1015.06;
 
 const float LUpper = 0.55;
 const float LLower = 0.22;
+
+
+// Bool to determine whether to show alarm or not
+bool showAlarm = true;
 
 
 int main() {
@@ -80,6 +91,7 @@ int main() {
 
     t1.start(getSensorData);
     t2.start(readBuffer);
+    t3.start(waitForBtnPress);
 
     Azure azure;
     if (!azure.connect()) return -1;
@@ -104,7 +116,6 @@ void getSensorData() {
     while (true) {
         // Temperature, Light Levels & Pressure
         float temp, pres, light;
-        // std::time_t dateTime;
         time_t dateTime;
 
         data.setSensorReadings();
@@ -122,10 +133,9 @@ void getSensorData() {
         cout << "Temperature: " << temp << "\n";
         cout << "Pressure: " << pres << "\n";
         cout << "Light levels: " << light << "\n";
-        // cout << "Date and time: " << ctime(&dateTime) << "\n";
         cout << "Date and time: " << ctime(&dateTime) << "\n";
 
-        if (outsideThreshold(temp, light, pres)) {
+        if (outsideThreshold(temp, light, pres) && showAlarm) {
             writeAlarmMsg();
         }
 
@@ -150,6 +160,10 @@ void setFlags2() {
     t2.flags_set(2);
 }
 
+void setFlags3() {
+    t3.flags_set(3);
+}
+
 bool outsideThreshold(float t, float l, float p) {
     if (t > TUpper || t < TLower || l > LUpper || l < LLower || p > PUpper || p < PLower) {
         return true;
@@ -161,5 +175,28 @@ bool outsideThreshold(float t, float l, float p) {
 }
 
 void writeAlarmMsg() {
-    printf("\n\n\n*** [!!!] WARNING: sensor measurement outside threshold values!\n\n\n");
+    printf("\n*** [!!!] WARNING: sensor measurement outside threshold values! ***\n");
+}
+
+void waitForBtnPress() {
+    MbedButton btn(USER_BUTTON);
+    IButton &blueBtn = btn;
+
+    MbedTimer t;
+    ITimer &time = t;
+
+    while (true) {
+        while (!blueBtn.btnPressed()); // Spin
+
+        showAlarm = false;
+
+        time.tmrStart();
+
+        while (time.tmrElapsed() < 60s); // Spin for 1 minute
+
+        time.tmrStop();
+        time.tmrReset();
+
+        showAlarm = true;
+    }
 }
