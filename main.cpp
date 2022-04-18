@@ -3,213 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "mbed.h"
+// #include "mbed.h"
 #include "uop_msb.h"
 #include "rtos/ThisThread.h"
-#include "NTPClient.h"
+// #include "NTPClient.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include <cstring>
 #include <ctime>
 #include <string.h>
-#include <iostream>
+// #include <iostream>
 #include <string>
-#include "SDBlockDevice.h"
-#include "FATFileSystem.h"
+// #include "SDBlockDevice.h"
+// #include "FATFileSystem.h"
+
+// #include "SensorData.h"
+#include "Buffer.h"
+#include "MbedTicker.h"
 
 using namespace uop_msb;
 using namespace std;
 
 extern void azureDemo();
-extern NetworkInterface *_defaultSystemNetwork;
-
-// Interface for red LED
-class ILED {
-    public:
-        virtual void lightOn() = 0;
-        virtual void lightOff() = 0;
-};
-
-// Class for Mbed red LED using interface
-class MbedLight : public ILED {
-    private:
-        DigitalOut led;
-
-    public:
-        MbedLight(PinName pin, int state) : led(pin, state) {}
-
-        virtual void lightOn() {
-            led = 1;
-        }
-
-        virtual void lightOff() {
-            led = 0;
-        }
-};
-
-// Interface for ticker
-class ITick {
-    public:
-        virtual void attachFunc(void (*func1)(), std::chrono::microseconds time) = 0;
-};
-
-// Class for Mbed ticker using interface
-class MbedTicker : public ITick {
-    private:
-        Ticker tm;
-
-    public:
-        virtual void attachFunc(void (*func1)(), std::chrono::microseconds time) {
-            tm.attach(func1, time);
-        }
-};
-
-AnalogIn ldr(AN_LDR_PIN);
-
-
-// Sensor data class - for requirement 1
-class SensorData {
-    private:
-        float temperature;
-        float pressure;
-        float lightLevel;
-        std::time_t dateTime;
-
-        std::time_t acquireDateTime() {
-            NTPClient ntp(_defaultSystemNetwork);
-            ntp.set_server("time.google.com", 123);
-            time_t timestamp = ntp.get_timestamp();
-            if (timestamp < 0) {
-                LogError("Failed to get the current time, error: %ud", timestamp);
-            }
-            // LogInfo("Time: %s", ctime(&timestamp));
-
-            return timestamp;
-        }
-
-    public:
-        void setSensorReadings() {
-            EnvSensor sensor;
-            float temp, pres, light;            
-
-            float temps[50];
-            float pressures[50];
-            float lightLevels[50];
-
-            float tempSum = 0.0f;
-            float presSum = 0.0f;
-            float lightSum = 0.0f;
-
-            for (int i = 0; i < 50; i++) { // Take 50 samples to minimise jitter and find the average.
-                temps[i] = sensor.getTemperature();
-                pressures[i] = sensor.getPressure();
-                lightLevels[i] = ldr;
-
-                tempSum += temps[i];
-                presSum += pressures[i];
-                lightSum += lightLevels[i];
-            }
-
-            temperature = tempSum / 50;
-            pressure = presSum / 50;
-            lightLevel = lightSum / 50;
-            dateTime = acquireDateTime();
-        }
-
-        float fetchTemperature() {
-            return temperature;
-        }
-
-        float fetchPressure() {
-            return pressure;
-        }
-
-        float fetchLightLevel() {
-            return lightLevel;
-        }
-
-        std::time_t fetchDateTime() {
-            return dateTime;
-        }
-};
-
-
-#ifdef USE_SD_CARD
-#include "SDBlockDevice.h"
-#include "FATFileSystem.h"
-#endif
-SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
-
-// Buffer class - for requirement 3
-class Buffer {
-    private:
-        Queue<SensorData, 10> buffer;
-        ILED &redLED;
-
-    public:
-        Buffer(ILED &led) : redLED(led) {}
-
-        void writeToBuffer(SensorData item) {
-            // Write to FIFO buffer
-            bool sent = buffer.try_put(&item);
-
-            // Error occurred
-            if (!sent) {
-                printf("\n[!] Data could not be added to the buffer.\n");
-            }
-
-            else {
-                printf("Values added to buffer!\n");
-            }
-
-            // Buffer full, light red LED
-            if (buffer.full()) {
-                printf("Buffer is full!\n\n");
-                redLED.lightOn();
-            }
-        }
-
-        void readFromBuffer() {
-            SensorData* values;
-            bool success = buffer.try_get_for(10s, &values); // Blocks for 10 secs if buffer empty
-
-            if (success) {               
-                // Write value to the file.
-                int err;
-
-                err = card.init();
-
-                if (0 != err) {
-                    printf("Card init failed: %d\n",err);
-                }
-
-                else {
-                    FATFileSystem fs("sd", &card);
-                    FILE *fp = fopen("/sd/test.txt","w");
-
-                    if(fp == NULL) {
-                        error("Could not open file for write\n");
-                        card.deinit();
-
-                    } else {
-                        // Add readings to file
-                        for (int i = 0; i <= buffer.count(); i++) {
-                            time_t curr = values[i].fetchDateTime();
-
-                            fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel(), ctime(&curr));
-                        }
-                        
-                        fclose(fp);
-                        printf("SD write done...\n");
-                        card.deinit();
-                    }
-                }
-            }
-
-            else {
-                cout << "Timeout...\n";
-            }
-        }
-};
 
 
 // Timers
@@ -225,53 +39,33 @@ void getSensorData();
 void setFlags();
 void setFlags2();
 void readBuffer();
+bool outsideThreshold(float t, float l, float p);
+void writeAlarmMsg();
+
 
 // Mbed class objects for LED
 MbedLight red(PC_2, 0);
 ILED &redLED = red;
 
+
 // Buffer
 Buffer valuesBuffer(redLED);
+
 
 // Threads
 Thread t1(osPriorityAboveNormal);
 Thread t2(osPriorityNormal);
 
-bool connect()
-{
-    LogInfo("Connecting to the network");
 
-    _defaultSystemNetwork = NetworkInterface::get_default_instance();
-    if (_defaultSystemNetwork == nullptr) {
-        LogError("No network interface found");
-        return false;
-    }
+// Upper and lower limits for pressure, light and temperature
+const float TUpper = 22.0;
+const float TLower = 19.0;
 
-    int ret = _defaultSystemNetwork->connect();
-    if (ret != 0) {
-        LogError("Connection error: %d", ret);
-        return false;
-    }
-    LogInfo("Connection success, MAC: %s", _defaultSystemNetwork->get_mac_address());
-    return true;
-}
+const float PUpper = 1016.0;
+const float PLower = 1015.06;
 
-bool setTime()
-{
-    LogInfo("Getting time from the NTP server");
-
-    NTPClient ntp(_defaultSystemNetwork);
-    ntp.set_server("time.google.com", 123);
-    time_t timestamp = ntp.get_timestamp();
-    if (timestamp < 0) {
-        LogError("Failed to get the current time, error: %ud", timestamp);
-        return false;
-    }
-    LogInfo("Time: %s", ctime(&timestamp));
-    set_time(timestamp);
-    return true;
-}
-
+const float LUpper = 0.55;
+const float LLower = 0.22;
 
 
 int main() {
@@ -287,9 +81,9 @@ int main() {
     t1.start(getSensorData);
     t2.start(readBuffer);
 
-    if (!connect()) return -1;
-
-    if (!setTime()) return -1;
+    Azure azure;
+    if (!azure.connect()) return -1;
+    if (!azure.setTime()) return -1;
 
     // The two lines below will demonstrate the features on the MSB. See uop_msb.cpp for examples of how to use different aspects of the MSB
     // UOP_MSB_TEST board;  //Only uncomment for testing - DO NOT USE OTHERWISE
@@ -310,7 +104,8 @@ void getSensorData() {
     while (true) {
         // Temperature, Light Levels & Pressure
         float temp, pres, light;
-        std::time_t dateTime;
+        // std::time_t dateTime;
+        time_t dateTime;
 
         data.setSensorReadings();
 
@@ -327,18 +122,17 @@ void getSensorData() {
         cout << "Temperature: " << temp << "\n";
         cout << "Pressure: " << pres << "\n";
         cout << "Light levels: " << light << "\n";
+        // cout << "Date and time: " << ctime(&dateTime) << "\n";
         cout << "Date and time: " << ctime(&dateTime) << "\n";
+
+        if (outsideThreshold(temp, light, pres)) {
+            writeAlarmMsg();
+        }
 
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
     }
 }
-
-// #ifdef USE_SD_CARD
-// #include "SDBlockDevice.h"
-// #include "FATFileSystem.h"
-// #endif
-// SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
 
 void readBuffer() {
     while (true) {
@@ -354,4 +148,18 @@ void setFlags() {
 
 void setFlags2() {
     t2.flags_set(2);
+}
+
+bool outsideThreshold(float t, float l, float p) {
+    if (t > TUpper || t < TLower || l > LUpper || l < LLower || p > PUpper || p < PLower) {
+        return true;
+    }
+
+    else {
+        return false;
+    }
+}
+
+void writeAlarmMsg() {
+    printf("\n\n\n*** [!!!] WARNING: sensor measurement outside threshold values!\n\n\n");
 }
