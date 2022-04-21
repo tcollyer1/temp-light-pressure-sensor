@@ -6,12 +6,14 @@
 #include "SensorData.h"
 #include <iostream>
 
-SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
+// SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
+
 // Buffer class - for requirement 3
 class Buffer {
     private:
         Queue<SensorData, 10> buffer;
         ILED &redLED;
+        Mutex lock;
 
     public:
         Buffer(ILED &led) : redLED(led) {}
@@ -25,10 +27,6 @@ class Buffer {
                 printf("\n[!] Data could not be added to the buffer.\n");
             }
 
-            // else {
-            //     printf("Values added to buffer!\n");
-            // }
-
             // Buffer full, light red LED
             if (buffer.full()) {
                 printf("Buffer is full!\n\n");
@@ -40,45 +38,57 @@ class Buffer {
             }
         }
 
-        void readFromBuffer() {
-            SensorData* values;
+        void emptyBuffer() {
+            // ???
+        }
+
+        int bufferCount() {
+            return buffer.count();
+        }
+
+        bool readFromBuffer(SensorData *&values) {
+            // SensorData* values;
+            lock.lock();
             bool success = buffer.try_get_for(10s, &values); // Blocks for 10 secs if buffer empty
+            lock.unlock();
 
-            if (success) {               
-                // Write value to the file.
-                int err;
+            return success;
 
-                err = card.init();
+            // if (success) {               
+            //     // Write value to the file.
+            //     int err;
 
-                if (0 != err) {
-                    printf("Card init failed: %d\n",err);
-                }
+            //     err = card.init();
 
-                else {
-                    FATFileSystem fs("sd", &card);
-                    FILE *fp = fopen("/sd/test.txt","w");
+            //     if (0 != err) {
+            //         printf("Card init failed: %d\n",err);
+            //     }
 
-                    if(fp == NULL) {
-                        error("Could not open file for write\n");
-                        card.deinit();
+            //     else {
+            //         FATFileSystem fs("sd", &card);
+            //         FILE *fp = fopen("/sd/test.txt","w");
 
-                    } else {
-                        // Add readings to file
-                        for (int i = 0; i <= buffer.count(); i++) {
-                            time_t curr = values[i].fetchDateTime();
+            //         if(fp == NULL) {
+            //             error("Could not open file for write\n");
+            //             card.deinit();
 
-                            fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel(), ctime(&curr));
-                        }
+            //         } else {
+            //             // Add readings to file
+            //             for (int i = 0; i <= buffer.count(); i++) {
+            //                 time_t curr = values[i].fetchDateTime();
+
+            //                 fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel(), ctime(&curr));
+            //             }
                         
-                        fclose(fp);
-                        printf("SD write done...\n");
-                        card.deinit();
-                    }
-                }
-            }
+            //             fclose(fp);
+            //             printf("SD write done...\n");
+            //             card.deinit();
+            //         }
+            //     }
+            // }
 
-            else {
-                cout << "Timeout...\n";
-            }
+            // else {
+            //     cout << "Timeout...\n";
+            // }
         }
 };

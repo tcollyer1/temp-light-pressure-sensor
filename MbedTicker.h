@@ -12,4 +12,8 @@ class MbedTicker : public ITick {
         virtual void attachFunc(void (*func1)(), std::chrono::microseconds time) {
             tm.attach(func1, time);
         }
+
+        virtual void detachFunc() {
+            tm.detach();
+        }
 };
