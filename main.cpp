@@ -199,7 +199,7 @@ void waitForBtnPress() {
     IButton &blueBtn = btn;
 
     MbedTicker time;
-    ITick &timer = time;
+    ITick &timer3 = time;
 
     while (true) {
         blueBtn.waitForBtnPress();
@@ -211,12 +211,12 @@ void waitForBtnPress() {
 
         ThisThread::sleep_for(50ms);
 
-        time.attachFunc(&setFlags3, 60s);
+        timer3.attachFunc(&setFlags3, 60s);
         waitOneMinute();
 
         printf("[!] Alarm reenabled\n");
 
-        time.detachFunc();
+        timer3.detachFunc();
 
         showAlarm = true;
     }
