@@ -24,6 +24,8 @@
 #include "MbedButton.h"
 // #include "MbedTimer.h"
 
+#include "AzureIoT.h"
+
 using namespace uop_msb;
 using namespace std;
 
@@ -50,6 +52,16 @@ void writeAlarmMsg();
 void waitForBtnPress();
 void waitOneMinute();
 void setFlags3();
+void sendToAzure();
+void sendData();
+void setFlags4();
+
+// Azure remote functions
+SensorData latest();
+// SensorData[] buffered();
+
+
+Mutex mutex;
 
 
 // Mbed class objects for LED
@@ -60,11 +72,13 @@ ILED &redLED = red;
 // Buffer
 Buffer valuesBuffer(redLED);
 
+AzureIoT aaa;
 
 // Threads
 Thread t1(osPriorityAboveNormal);
 Thread t2(osPriorityNormal);
 Thread t3(osPriorityNormal);
+Thread t4(osPriorityNormal);
 
 
 // Upper and lower limits for pressure, light and temperature
@@ -92,26 +106,36 @@ int main() {
     //board.test();         //Look inside here to see how this works
     // END
 
-    timer.attachFunc(&setFlags, 10s);
-    timer2.attachFunc(&setFlags2, 60s);
-
+    
     t1.start(getSensorData); // 1st thread for acquiring the sensor data (high priority)
     t2.start(readBuffer); // 2nd thread for reading buffer and writing to SD
     t3.start(waitForBtnPress); // 3rd thread for listening for blue button press - for user to cancel alarm message
+    // t4.start(sendToAzure);
+    
 
     Azure azure;
     if (!azure.connect()) return -1;
     if (!azure.setTime()) return -1;
+
+
+    timer.attachFunc(&setFlags, 10s);
+    timer2.attachFunc(&setFlags2, 60s);
+
+    
+
+
+
+
 
     // The two lines below will demonstrate the features on the MSB. See uop_msb.cpp for examples of how to use different aspects of the MSB
     // UOP_MSB_TEST board;  //Only uncomment for testing - DO NOT USE OTHERWISE
     // board.test();        //Only uncomment for testing - DO NOT USE OTHERWISE
 
     // Write fake data to Azure IoT Center. Don't forget to edit azure_cloud_credentials.h
-    printf("You will need your own connection string in azure_cloud_credentials.h\n");
-    LogInfo("Starting the Demo");
-    // azureDemo();
-    LogInfo("The demo has ended");
+    // printf("You will need your own connection string in azure_cloud_credentials.h\n");
+    // LogInfo("Starting the Demo");
+    // // azureDemo();
+    // LogInfo("The demo has ended");
 
     return 0;
 }
@@ -143,10 +167,26 @@ void getSensorData() {
             writeAlarmMsg();
         }
 
+        // aaa.demo(light, temp, pres);
+
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
+
+        // setFlags4();
     }
 }
+
+void sendToAzure() {
+    while (true) {
+        ThisThread::flags_wait_any(4);
+        SensorData latestData = latest();
+        aaa.demo(latestData.fetchLightLevel(), latestData.fetchTemperature(),latestData.fetchPressure());
+        //aaa.demo(0.23, 22.3, 1006.22);
+    }
+    
+}
+
+
 
 // Reads values currently in the buffer and writes these in the SD card. Triggers every minute.
 void readBuffer() {
@@ -156,10 +196,21 @@ void readBuffer() {
         ThisThread::flags_wait_any(2);
         printf("1 minute passed, trying to get buffer and write to file!\n");
 
+        // SensorData* values; // To hold values
         SensorData* values; // To hold values
-        bool success = valuesBuffer.readFromBuffer(values);
+        bool success = false;
+        SensorData bufferContent[valuesBuffer.bufferCount()];
+
+        mutex.lock();
+        //values = valuesBuffer.readFromBuffer(values, success);
+        values = valuesBuffer.flushBuffer();
+        mutex.unlock();
         
+        // if (success) {
+            // printf("\nThis is the first temperature in the buffer: %f", values[0].fetchTemperature());
         sdObj.writeToSD(values, valuesBuffer.bufferCount());
+        // }
+        
     }
 }
 
@@ -209,7 +260,7 @@ void waitForBtnPress() {
         printf("[!] Alarm cancelled for 1 minute.\n");
         showAlarm = false;
 
-        ThisThread::sleep_for(50ms);
+        ThisThread::sleep_for(50ms); // switch debounce
 
         timer3.attachFunc(&setFlags3, 60s);
         waitOneMinute();
@@ -228,4 +279,24 @@ void waitOneMinute() {
 
 void setFlags3() {
     t3.flags_set(ONE_MINUTE_FLAG);
+}
+
+void setFlags4() {
+    t4.flags_set(4);
+}
+
+SensorData latest() {
+    SensorData value;
+    SensorData latest;
+    //bool success = false;
+    
+    mutex.lock();
+    latest = valuesBuffer.readFromBuffer();
+    mutex.unlock();
+
+    // if (success) {
+    //     latest = values[0];
+    // }
+    
+    return latest;
 }

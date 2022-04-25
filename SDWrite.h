@@ -31,9 +31,12 @@ class SDWrite {
                         card.deinit();
 
                     } else {
+                        //SensorData theValues = *values;
                         // Add readings to file
                         for (int i = 0; i <= size; i++) {
                             time_t curr = values[i].fetchDateTime();
+
+                            printf("\nIt's writing this to the file:\nTemperature: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel(), ctime(&curr));
 
                             fprintf(fp, "Temperature: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n", values[i].fetchTemperature(), values[i].fetchPressure(), values[i].fetchLightLevel(), ctime(&curr));
                         }
