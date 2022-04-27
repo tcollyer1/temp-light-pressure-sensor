@@ -61,9 +61,6 @@ SensorData latest();
 // SensorData[] buffered();
 
 
-Mutex mutex;
-
-
 // Mbed class objects for LED
 MbedLight red(PC_2, 0);
 ILED &redLED = red;
@@ -75,8 +72,8 @@ Buffer valuesBuffer(redLED);
 AzureIoT aaa;
 
 // Threads
-Thread t1(osPriorityAboveNormal);
-Thread t2(osPriorityNormal);
+Thread producer(osPriorityAboveNormal);
+Thread consumer(osPriorityNormal);
 Thread t3(osPriorityNormal);
 Thread t4(osPriorityNormal);
 
@@ -106,20 +103,21 @@ int main() {
     //board.test();         //Look inside here to see how this works
     // END
 
+    timer.attachFunc(&setFlags, 10s);
+    timer2.attachFunc(&setFlags2, 60s);
     
-    t1.start(getSensorData); // 1st thread for acquiring the sensor data (high priority)
-    t2.start(readBuffer); // 2nd thread for reading buffer and writing to SD
+    producer.start(getSensorData); // 1st thread for acquiring the sensor data (high priority) and writing to buffer (producer)
+    consumer.start(readBuffer); // 2nd thread for reading buffer and writing to SD (consumer)
     t3.start(waitForBtnPress); // 3rd thread for listening for blue button press - for user to cancel alarm message
     // t4.start(sendToAzure);
     
 
-    Azure azure;
-    if (!azure.connect()) return -1;
-    if (!azure.setTime()) return -1;
+    // Azure azure;
+    // if (!azure.connect()) return -1;
+    // if (!azure.setTime()) return -1;
 
 
-    timer.attachFunc(&setFlags, 10s);
-    timer2.attachFunc(&setFlags2, 60s);
+    
 
     
 
@@ -146,6 +144,7 @@ void getSensorData() {
     SensorData data;
 
     while (true) {
+        printf("\nSensor data loop starting again\n");
         // Temperature, Light Levels & Pressure
         float temp, pres, light;
         time_t dateTime;
@@ -196,32 +195,26 @@ void readBuffer() {
         ThisThread::flags_wait_any(2);
         printf("1 minute passed, trying to get buffer and write to file!\n");
 
-        // SensorData* values; // To hold values
-        SensorData* values; // To hold values
-        bool success = false;
-        SensorData bufferContent[valuesBuffer.bufferCount()];
-
-        mutex.lock();
         //values = valuesBuffer.readFromBuffer(values, success);
-        values = valuesBuffer.flushBuffer();
-        mutex.unlock();
+        int bufferLength = valuesBuffer.bufferCount();
+        SensorData contents[bufferLength];
         
-        // if (success) {
-            // printf("\nThis is the first temperature in the buffer: %f", values[0].fetchTemperature());
-        sdObj.writeToSD(values, valuesBuffer.bufferCount());
-        // }
+        for (int i = 0; i < bufferLength; i++) {
+            contents[i] = valuesBuffer.readFromBuffer();
+        }
         
+        sdObj.writeToSD(contents, bufferLength);
     }
 }
 
 // Sets flags for the first timer - collecting sensor data every 10 seconds.
 void setFlags() {
-    t1.flags_set(1);
+    producer.flags_set(1);
 }
 
 // Sets flags for the second timer - reading from the buffer and writing to the SD card every minute.
 void setFlags2() {
-    t2.flags_set(2);
+    consumer.flags_set(2);
 }
 
 // Takes temperature, light and pressure readings as parameters.
@@ -286,17 +279,9 @@ void setFlags4() {
 }
 
 SensorData latest() {
-    SensorData value;
     SensorData latest;
-    //bool success = false;
     
-    mutex.lock();
     latest = valuesBuffer.readFromBuffer();
-    mutex.unlock();
-
-    // if (success) {
-    //     latest = values[0];
-    // }
     
     return latest;
 }
