@@ -11,7 +11,7 @@ class SDWrite {
     private:
 
     public:
-        void writeToSD(SensorData values[], int size) {
+        void writeToSD(SensorData<float, time_t> values[], int size) {
             //if (success) {               
                 // Write value to the file.
                 int err;

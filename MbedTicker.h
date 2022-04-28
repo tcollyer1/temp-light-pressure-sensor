@@ -2,9 +2,10 @@
 
 #include "ITick.h"
 #include "mbed.h"
+#include <chrono>
 
 // Class for Mbed ticker using interface
-class MbedTicker : public ITick {
+class MbedTicker : public ITick<std::chrono::microseconds> {
     private:
         Ticker tm;
 

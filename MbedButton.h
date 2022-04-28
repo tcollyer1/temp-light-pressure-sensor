@@ -13,16 +13,6 @@ class MbedButton : public IButton {
     public:
         MbedButton(PinName pin) : button(pin) {}
 
-        // virtual bool btnPressed() {
-        //     if (button == 1) {
-        //         return true;
-        //     }
-
-        //     else {
-        //         return false;
-        //     }
-        // }
-
         virtual void waitForBtnPress() {
             button.waitForPress();
         }

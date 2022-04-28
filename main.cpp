@@ -8,6 +8,7 @@
 #include "rtos/ThisThread.h"
 // #include "NTPClient.h"
 #include "azure_c_shared_utility/xlogging.h"
+#include <chrono>
 #include <cstring>
 #include <ctime>
 #include <string.h>
@@ -37,9 +38,9 @@ MbedTicker tr1;
 MbedTicker tr2;
 MbedTicker tr3;
 
-ITick &timer = tr1;
-ITick &timer2 = tr2;
-ITick &timer3 = tr3;
+ITick<std::chrono::microseconds> &timer = tr1;
+ITick<std::chrono::microseconds> &timer2 = tr2;
+ITick<std::chrono::microseconds> &timer3 = tr3;
 
 
 // Function declarations
@@ -57,13 +58,15 @@ void sendData();
 void setFlags4();
 
 // Azure remote functions
-SensorData latest();
+SensorData<float, time_t> latest();
 // SensorData[] buffered();
 
 
 // Mbed class objects for LED
 MbedLight red(PC_2, 0);
 ILED &redLED = red;
+// MbedLDR the_ldr(AN_LDR_PIN);
+// ILightReadings<AnalogIn> &light_readings = the_ldr;
 
 
 // Buffer
@@ -141,14 +144,17 @@ int main() {
 // Acquires sensor data using SensorData class, running every 10 seconds.
 // Displays alarm if readings fall outside thresholds and writes readings to the buffer.
 void getSensorData() {
-    SensorData data;
+    SensorData<float, time_t> data;
 
     while (true) {
         printf("\nSensor data loop starting again\n");
         // Temperature, Light Levels & Pressure
         float temp, pres, light;
         time_t dateTime;
+        //MbedLDR my_ldr(AN_LDR_PIN);
+        //ILightReadings<AnalogIn> &ldr_pin = my_ldr;
 
+        // data.setSensorReadings(ldr_pin);
         data.setSensorReadings();
 
         temp = data.fetchTemperature();
@@ -172,14 +178,18 @@ void getSensorData() {
         valuesBuffer.writeToBuffer(data);
 
         // setFlags4();
+
+        Timer tee;
+        int elapsed = tee.elapsed_time().count();
+        cout << elapsed;
     }
 }
 
 void sendToAzure() {
     while (true) {
         ThisThread::flags_wait_any(4);
-        SensorData latestData = latest();
-        aaa.demo(latestData.fetchLightLevel(), latestData.fetchTemperature(),latestData.fetchPressure());
+        //SensorData<float, time_t, AnalogIn> latestData = latest();
+        //aaa.demo(latestData.fetchLightLevel(), latestData.fetchTemperature(),latestData.fetchPressure());
         //aaa.demo(0.23, 22.3, 1006.22);
     }
     
@@ -197,7 +207,7 @@ void readBuffer() {
 
         //values = valuesBuffer.readFromBuffer(values, success);
         int bufferLength = valuesBuffer.bufferCount();
-        SensorData contents[bufferLength];
+        SensorData<float, time_t> contents[bufferLength];
         
         for (int i = 0; i < bufferLength; i++) {
             contents[i] = valuesBuffer.readFromBuffer();
@@ -243,7 +253,7 @@ void waitForBtnPress() {
     IButton &blueBtn = btn;
 
     MbedTicker time;
-    ITick &timer3 = time;
+    ITick<std::chrono::microseconds> &timer3 = time;
 
     while (true) {
         blueBtn.waitForBtnPress();
@@ -278,8 +288,8 @@ void setFlags4() {
     t4.flags_set(4);
 }
 
-SensorData latest() {
-    SensorData latest;
+SensorData<float, time_t> latest() {
+    SensorData<float, time_t> latest;
     
     latest = valuesBuffer.readFromBuffer();
     
