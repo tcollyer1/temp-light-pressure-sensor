@@ -178,17 +178,13 @@ void getSensorData() {
         valuesBuffer.writeToBuffer(data);
 
         // setFlags4();
-
-        Timer tee;
-        int elapsed = tee.elapsed_time().count();
-        cout << elapsed;
     }
 }
 
 void sendToAzure() {
     while (true) {
         ThisThread::flags_wait_any(4);
-        //SensorData<float, time_t, AnalogIn> latestData = latest();
+        //SensorData<float, time_t> latestData = latest();
         //aaa.demo(latestData.fetchLightLevel(), latestData.fetchTemperature(),latestData.fetchPressure());
         //aaa.demo(0.23, 22.3, 1006.22);
     }

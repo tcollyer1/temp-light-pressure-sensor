@@ -4,7 +4,7 @@
 #include "mbed.h"
 
 // Class for AnalogIn
-class MbedLDR : ILightReadings<AnalogIn> {
+class MbedLDR : public ILightReadings<AnalogIn> {
     private:
         AnalogIn ldr;
 

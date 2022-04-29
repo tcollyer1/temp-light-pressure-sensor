@@ -2,6 +2,7 @@
 
 #include "AzureServer.h"
 #include "uop_msb.h"
+//#include "ILightReadings.h"
 #include "MbedLDR.h"
 
 // Sensor data class - for requirement 1
@@ -12,8 +13,6 @@ class SensorData {
         SensorType pressure;
         SensorType lightLevel;
         DateType dateTime;
-        // AnalogIn ldr(AN_LDR_PIN);
-        // ILightReadings<AnalogIn> &lightReading = ldr;
 
         DateType acquireDateTime() {
             NTPClient ntp(_defaultSystemNetwork);
@@ -24,13 +23,12 @@ class SensorData {
         }
 
     public:
-        //SensorData(ILightReadings<LDR> &pin) : lightReading(pin) {}
-
-        // void setSensorReadings(ILightReadings<LDR> &lightReading) {
         void setSensorReadings() {
             uop_msb::EnvSensor sensor;
-            // LDR for light readings
-            AnalogIn ldr(AN_LDR_PIN);
+            // LDR for light readings - uses interface and template
+            MbedLDR ldr_pin(AN_LDR_PIN);
+            ILightReadings<AnalogIn> &ldr = ldr_pin;
+            
             SensorType temp, pres, light;            
 
             SensorType temps[50];
@@ -44,7 +42,7 @@ class SensorData {
             for (int i = 0; i < 50; i++) { // Take 50 samples to minimise jitter and find the average.
                 temps[i] = sensor.getTemperature();
                 pressures[i] = sensor.getPressure();
-                lightLevels[i] = ldr;
+                lightLevels[i] = ldr.getLightReading();
                 // lightLevels[i] = lightReading.getLightReading();
 
                 tempSum += temps[i];
