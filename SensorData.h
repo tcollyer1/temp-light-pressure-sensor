@@ -25,6 +25,7 @@ class SensorData {
     public:
         void setSensorReadings() {
             uop_msb::EnvSensor sensor;
+            
             // LDR for light readings - uses interface and template
             MbedLDR ldr_pin(AN_LDR_PIN);
             ILightReadings<AnalogIn> &ldr = ldr_pin;
@@ -43,7 +44,6 @@ class SensorData {
                 temps[i] = sensor.getTemperature();
                 pressures[i] = sensor.getPressure();
                 lightLevels[i] = ldr.getLightReading();
-                // lightLevels[i] = lightReading.getLightReading();
 
                 tempSum += temps[i];
                 presSum += pressures[i];

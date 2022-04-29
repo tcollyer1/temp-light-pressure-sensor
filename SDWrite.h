@@ -4,11 +4,14 @@
 #include "SDBlockDevice.h"
 #include "FATFileSystem.h"
 #include "Buffer.h"
+// #include "MbedLight.h"
 
 SDBlockDevice card(PB_5, PB_4, PB_3, PF_3);
+// MbedLight errorLED(PC_0);
 
 class SDWrite {
     private:
+    
 
     public:
         void writeToSD(SensorData<float, time_t> values[], int size) {
@@ -19,7 +22,10 @@ class SDWrite {
                 err = card.init();
 
                 if (0 != err) {
+                    // Critical error?
                     printf("Card init failed: %d\n",err);
+                    
+
                 }
 
                 else {

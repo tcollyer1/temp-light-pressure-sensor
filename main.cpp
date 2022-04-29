@@ -3,27 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// #include "mbed.h"
 #include "uop_msb.h"
 #include "rtos/ThisThread.h"
-// #include "NTPClient.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include <chrono>
 #include <cstring>
 #include <ctime>
 #include <string.h>
-// #include <iostream>
 #include <string>
-// #include "SDBlockDevice.h"
-// #include "FATFileSystem.h"
 
-// #include "SensorData.h"
-// #include "Buffer.h"
 #include "SDWrite.h"
 
 #include "MbedTicker.h"
 #include "MbedButton.h"
-// #include "MbedTimer.h"
 
 #include "AzureIoT.h"
 
@@ -33,7 +25,7 @@ using namespace std;
 extern void azureDemo();
 
 
-// Timers
+// Timers - interface and virtual functions
 MbedTicker tr1;
 MbedTicker tr2;
 MbedTicker tr3;
@@ -62,12 +54,9 @@ SensorData<float, time_t> latest();
 // SensorData[] buffered();
 
 
-// Mbed class objects for LED
+// Mbed class objects for LED - uses interface
 MbedLight red(PC_2, 0);
 ILED &redLED = red;
-// MbedLDR the_ldr(AN_LDR_PIN);
-// ILightReadings<AnalogIn> &light_readings = the_ldr;
-
 
 // Buffer
 Buffer valuesBuffer(redLED);
@@ -148,13 +137,10 @@ void getSensorData() {
 
     while (true) {
         printf("\nSensor data loop starting again\n");
-        // Temperature, Light Levels & Pressure
+        // Temperature, Light Levels, Pressure and Date/Time
         float temp, pres, light;
         time_t dateTime;
-        //MbedLDR my_ldr(AN_LDR_PIN);
-        //ILightReadings<AnalogIn> &ldr_pin = my_ldr;
 
-        // data.setSensorReadings(ldr_pin);
         data.setSensorReadings();
 
         temp = data.fetchTemperature();
