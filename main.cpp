@@ -24,6 +24,11 @@ using namespace std;
 
 extern void azureDemo();
 
+// Semaphores
+// Send data to Azure
+// Remote functions
+// Critical error handling
+
 
 // Timers - interface and virtual functions
 MbedTicker tr1;
@@ -64,7 +69,7 @@ Buffer valuesBuffer(redLED);
 AzureIoT aaa;
 
 // Threads
-Thread producer(osPriorityAboveNormal);
+Thread producer(osPriorityHigh);
 Thread consumer(osPriorityNormal);
 Thread t3(osPriorityNormal);
 Thread t4(osPriorityNormal);
