@@ -15,8 +15,6 @@ Semaphore samplesInBuffer;
 // Buffer class - for requirement 3
 class Buffer {
     private:
-        //Queue<SensorData, 10> buffer;
-
         ILED &redLED;
         SensorData<float, time_t> buffer[20]; // Array to hold buffer items
         int front = 0, back = 0;
@@ -27,6 +25,7 @@ class Buffer {
     public:
         Buffer(ILED &led) : redLED(led) {}
 
+        // Writes an item to the FIFO buffer.
         void writeToBuffer(SensorData<float, time_t> item) {
             // Write to FIFO buffer
 
@@ -58,20 +57,24 @@ class Buffer {
             }
         }
 
+        // Returns whether buffer is full or not.
         bool bufferIsFull() {
             if (counter == 20) return true;
             else return false;
         }
 
+        // Returns whether buffer is empty or not.
         bool bufferIsEmpty() {
             if (front == back && counter != 20) return true;
             else return false;   
         }
 
+        // Returns the number of items currently stored in the buffer.
         int bufferCount() {
             return counter;
         }
 
+        // Reads the first, oldest item out of the FIFO buffer.
         SensorData<float, time_t> readFromBuffer() {
             printf("\nFrom readFromBuffer() before read: There are %d items in the buffer right now", bufferCount());
             printf("\nTrying to read from buffer... (May be blocking)");
@@ -101,5 +104,11 @@ class Buffer {
 
             return itemToRead;
             
+        }
+
+        SensorData<float, time_t> peekFromBuffer() {
+            SensorData<float, time_t> itemToPeek = buffer[front - 1];
+
+            return itemToPeek;
         }
 };

@@ -3,7 +3,7 @@
 #include "ILightReadings.h"
 #include "mbed.h"
 
-// Class for AnalogIn
+// Class for AnalogIn for the LDR
 class MbedLDR : public ILightReadings<AnalogIn> {
     private:
         AnalogIn ldr;

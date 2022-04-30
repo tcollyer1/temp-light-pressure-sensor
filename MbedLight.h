@@ -3,7 +3,7 @@
 #include "ILED.h"
 #include "mbed.h"
 
-// Class for Mbed red LED using interface
+// Class for Mbed LEDs using interface
 class MbedLight : public ILED {
     private:
         DigitalOut led;

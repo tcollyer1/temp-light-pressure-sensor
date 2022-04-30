@@ -1,6 +1,6 @@
 // TAREN COLLYER
 
-// Interface for blue button
+// Interface for button presses
 class IButton {
     public:
         //virtual bool btnPressed() = 0;

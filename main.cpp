@@ -14,7 +14,7 @@
 
 #include "SDWrite.h"
 
-#include "MbedTicker.h"
+// #include "MbedTicker.h"
 #include "MbedButton.h"
 
 #include "AzureIoT.h"
@@ -34,10 +34,12 @@ extern void azureDemo();
 MbedTicker tr1;
 MbedTicker tr2;
 MbedTicker tr3;
+MbedTicker tr4;
 
 ITick<std::chrono::microseconds> &timer = tr1;
 ITick<std::chrono::microseconds> &timer2 = tr2;
 ITick<std::chrono::microseconds> &timer3 = tr3;
+ITick<std::chrono::microseconds> &timer4 = tr4;
 
 
 // Function declarations
@@ -45,10 +47,10 @@ void getSensorData();
 void setFlags();
 void setFlags2();
 void readBuffer();
-bool outsideThreshold(float t, float l, float p);
 void writeAlarmMsg();
 void waitForBtnPress();
 void waitOneMinute();
+void wait30Seconds();
 void setFlags3();
 void sendToAzure();
 void sendData();
@@ -75,22 +77,11 @@ Thread t3(osPriorityNormal);
 Thread t4(osPriorityNormal);
 
 
-// Upper and lower limits for pressure, light and temperature
-float TUpper = 25.1; // was 22
-float TLower = 25.0; // was 12
-
-float PUpper = 1016.0;
-float PLower = 1015.06;
-
-float LUpper = 0.55;
-float LLower = 0.22;
-
-// Flag for the button ticker
-int ONE_MINUTE_FLAG = 3;
-
-
 // Bool to determine whether to show alarm or not
 bool showAlarm = true;
+
+// Bool that determines whether a critical error has been encountered or not
+bool criticalError = false;
 
 
 int main() {
@@ -142,8 +133,10 @@ void getSensorData() {
 
     while (true) {
         printf("\nSensor data loop starting again\n");
-        // Temperature, Light Levels, Pressure and Date/Time
+        // Temperature, light levels, pressure
         float temp, pres, light;
+
+        // Date and time
         time_t dateTime;
 
         data.setSensorReadings();
@@ -159,7 +152,7 @@ void getSensorData() {
 
         printf("Temperature: %f\nPressure: %f\nLight levels: %f\nDate and time: %s\n", temp, pres, light, ctime(&dateTime));
 
-        if (outsideThreshold(temp, light, pres) && showAlarm) {
+        if (data.outsideThreshold() && showAlarm) {
             writeAlarmMsg();
         }
 
@@ -186,7 +179,7 @@ void sendToAzure() {
 
 // Reads values currently in the buffer and writes these in the SD card. Triggers every minute.
 void readBuffer() {
-    SDWrite sdObj;
+    SDWrite sdObj(redLED);
     
     while (true) {
         ThisThread::flags_wait_any(2);
@@ -200,7 +193,17 @@ void readBuffer() {
             contents[i] = valuesBuffer.readFromBuffer();
         }
         
-        sdObj.writeToSD(contents, bufferLength);
+        sdObj.writeToSD(contents, bufferLength, criticalError);
+
+        if (criticalError) {
+            sdObj.print_alarm();
+
+            timer4.attachFunc(&setFlags4, 30s);
+            wait30Seconds();
+            timer4.detachFunc();
+
+            // Restart board here
+        }
     }
 }
 
@@ -212,19 +215,6 @@ void setFlags() {
 // Sets flags for the second timer - reading from the buffer and writing to the SD card every minute.
 void setFlags2() {
     consumer.flags_set(2);
-}
-
-// Takes temperature, light and pressure readings as parameters.
-// Checks if they are outside upper or lower thresholds.
-// Returns either true or false.
-bool outsideThreshold(float t, float l, float p) {
-    if (t > TUpper || t < TLower || l > LUpper || l < LLower || p > PUpper || p < PLower) {
-        return true;
-    }
-
-    else {
-        return false;
-    }
 }
 
 // Writes alarm message to the terminal.
@@ -263,22 +253,31 @@ void waitForBtnPress() {
     }
 }
 
+// Makes the thread wait for its signal for one minute
 void waitOneMinute() {
-    ThisThread::flags_wait_any(ONE_MINUTE_FLAG);
+    ThisThread::flags_wait_any(3);
+}
+
+void wait30Seconds() {
+    ThisThread::flags_wait_any(4);
 }
 
 void setFlags3() {
-    t3.flags_set(ONE_MINUTE_FLAG);
+    t3.flags_set(3);
 }
 
 void setFlags4() {
     t4.flags_set(4);
 }
 
+void set_flags(Thread thread_name, int flag) {
+    thread_name.flags_set(flag);
+}
+
 SensorData<float, time_t> latest() {
     SensorData<float, time_t> latest;
     
-    latest = valuesBuffer.readFromBuffer();
+    latest = valuesBuffer.peekFromBuffer();
     
     return latest;
 }
