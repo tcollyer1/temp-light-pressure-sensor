@@ -4,7 +4,9 @@
 #include "FATFileSystem.h"
 #include "MbedLight.h"
 #include "SensorData.h"
+#include <ctime>
 #include <iostream>
+#include <iterator>
 #include "mbed.h"
 //#include "MbedLDR.h"
 
@@ -38,14 +40,13 @@ class Buffer {
                 // Acquire mutex lock on critical section - adding data
                 lock.lock();
 
-                time_t the_time = item.fetchDateTime();
-
-                printf("This is what it's adding to the buffer: \nTemp: %f\nPres: %f\nLight: %f\nDate: %s", item.fetchTemperature(), item.fetchPressure(), item.fetchLightLevel(), ctime(&the_time));
+                // time_t the_time = item.fetchDateTime();
+                // printf("This is what it's adding to the buffer: \nTemp: %f\nPres: %f\nLight: %f\nDate: %s", item.fetchTemperature(), item.fetchPressure(), item.fetchLightLevel(), ctime(&the_time));
+ 
                 buffer[front] = item;
                 counter++;
-                printf("\nCounter increased\n");
                 front = (front + 1) % 20;
-                printf("\nFront index is now %d\n", front);
+                // printf("\nFront index is now %d\n", front);
 
                 // Release mutex lock
                 lock.unlock();
@@ -53,7 +54,7 @@ class Buffer {
                 // samplesInBuffer.release(); // Increment num. samples
                 // spaceInBuffer.acquire(); // Decrement space
 
-                printf("\nFrom writeToBuffer(): There are %d items in the buffer right now\n", bufferCount());
+                // printf("\nFrom writeToBuffer(): There are %d items in the buffer right now\n", bufferCount());
             }
         }
 
@@ -76,19 +77,19 @@ class Buffer {
 
         // Reads the first, oldest item out of the FIFO buffer.
         SensorData<float, time_t> readFromBuffer() {
-            printf("\nFrom readFromBuffer() before read: There are %d items in the buffer right now", bufferCount());
-            printf("\nTrying to read from buffer... (May be blocking)");
+            // printf("\nFrom readFromBuffer() before read: There are %d items in the buffer right now", bufferCount());
+            // printf("\nTrying to read from buffer... (May be blocking)");
 
             // samplesInBuffer.try_acquire_for(10s); // Try to decrease... if it's 0 already it's empty, blocks for 10 secs
 
-            printf("\nBuffer's apparently not empty so it's reading\n");
+            //printf("\nBuffer's apparently not empty so it's reading\n");
             
             // Acquire mutex lock on critical section - removing data to read
             lock.lock();
 
             SensorData<float, time_t> itemToRead = buffer[back];
             back = (back + 1) % 20;
-            printf("\nBack index is now %d\n", back);
+            // printf("\nBack index is now %d\n", back);
             redLED.lightOff();
             counter--;
 
@@ -99,15 +100,27 @@ class Buffer {
             // samplesInBuffer.release(); // Increment space
 
             time_t the_time = itemToRead.fetchDateTime();
-            printf("This is the item that's been read: \nTemp: %f\nPres: %f\nLight: %f\nDate: %s", itemToRead.fetchTemperature(), itemToRead.fetchPressure(), itemToRead.fetchLightLevel(), ctime(&the_time));
-            printf("\nFrom readFromBuffer() after read: There are %d items in the buffer right now\n", bufferCount());
+            // printf("This is the item that's been read: \nTemp: %f\nPres: %f\nLight: %f\nDate: %s", itemToRead.fetchTemperature(), itemToRead.fetchPressure(), itemToRead.fetchLightLevel(), ctime(&the_time));
+            // printf("\nFrom readFromBuffer() after read: There are %d items in the buffer right now\n", bufferCount());
 
             return itemToRead;
             
         }
 
         SensorData<float, time_t> peekFromBuffer() {
-            SensorData<float, time_t> itemToPeek = buffer[front - 1];
+            int idx;
+
+            if (front == 0) {
+                idx = 20;
+            }
+            else {
+                idx = front - 1;
+            }
+
+            SensorData<float, time_t> itemToPeek = buffer[idx];
+
+            time_t date_time = itemToPeek.fetchDateTime();
+            //printf("\n[***] The item it's peeking...\nTemp: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n", itemToPeek.fetchTemperature(), itemToPeek.fetchPressure(), itemToPeek.fetchLightLevel(), ctime(&date_time));
 
             return itemToPeek;
         }

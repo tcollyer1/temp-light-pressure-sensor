@@ -10,14 +10,7 @@ template<class SensorType, class DateType>
 class SensorData {
     private:
         // Default upper and lower limits for pressure, light and temperature
-        SensorType TUpper = 25.1; // (originally 22)
-        SensorType TLower = 25.0; // (originally 12)
-
-        SensorType PUpper = 1016.0;
-        SensorType PLower = 1015.06;
-
-        SensorType LUpper = 0.55;
-        SensorType LLower = 0.22;
+        
 
         SensorType temperature;
         SensorType pressure;
@@ -35,37 +28,37 @@ class SensorData {
 
     public:
         // Changes upper and/or lower temperature limit.
-        void modify_upper_lower_temperature(SensorType upper, SensorType lower) {
-            if (upper != 0) { // 0 as "default" parameter - keep as the same
-                TUpper = upper;
-            }
+        // void modify_upper_lower_temperature(SensorType upper, SensorType lower) {
+        //     if (upper != 0) { // 0 as "default" parameter - keep as the same
+        //         TUpper = upper;
+        //     }
 
-            if (lower != 0) {
-                TLower = lower;
-            }
-        }
+        //     if (lower != 0) {
+        //         TLower = lower;
+        //     }
+        // }
 
-        // Changes upper and/or lower pressure limit.
-        void modify_upper_lower_pressure(SensorType upper, SensorType lower) {
-            if (upper != 0) { // 0 as "default" parameter - keep as the same
-                PUpper = upper;
-            }
+        // // Changes upper and/or lower pressure limit.
+        // void modify_upper_lower_pressure(SensorType upper, SensorType lower) {
+        //     if (upper != 0) { // 0 as "default" parameter - keep as the same
+        //         PUpper = upper;
+        //     }
 
-            if (lower != 0) {
-                PLower = lower;
-            }
-        }
+        //     if (lower != 0) {
+        //         PLower = lower;
+        //     }
+        // }
 
-        // Changes upper and/or lower light level limit.
-        void modify_upper_lower_light(SensorType upper, SensorType lower) {
-            if (upper != 0) { // 0 as "default" parameter - keep as the same
-                LUpper = upper;
-            }
+        // // Changes upper and/or lower light level limit.
+        // void modify_upper_lower_light(SensorType upper, SensorType lower) {
+        //     if (upper != 0) { // 0 as "default" parameter - keep as the same
+        //         LUpper = upper;
+        //     }
 
-            if (lower != 0) {
-                LLower = lower;
-            }
-        }
+        //     if (lower != 0) {
+        //         LLower = lower;
+        //     }
+        // }
 
         // Collects a set of sensor readings and stores it within the SensorData object.
         void setSensorReadings() {
@@ -104,7 +97,7 @@ class SensorData {
         // Takes temperature, light and pressure readings as parameters.
         // Checks if they are outside upper or lower thresholds.
         // Returns either true or false.
-        bool outsideThreshold() {
+        bool outsideThreshold(SensorType TUpper, SensorType TLower, SensorType LUpper, SensorType LLower, SensorType PUpper, SensorType PLower) {
             if (this->temperature > TUpper || this->temperature < TLower || this->lightLevel > LUpper || this->lightLevel < LLower || this->pressure > PUpper || this->pressure < PLower) {
                 return true;
             }

@@ -1,8 +1,8 @@
 // TAREN COLLYER
 
 #include "mbed.h"
-#include "SDBlockDevice.h"
-#include "FATFileSystem.h"
+// #include "SDBlockDevice.h"
+// #include "FATFileSystem.h"
 #include "Buffer.h"
 #include <chrono>
 #include "MbedTicker.h"
@@ -28,7 +28,6 @@ class SDWrite {
 
         // Writes blocks of buffer contents to the mounted SD card.
         void writeToSD(SensorData<float, time_t> values[], int size, bool &criticalError) {
-          // Write value to the file.
           int err;
 
           err = card.init();
@@ -38,7 +37,7 @@ class SDWrite {
             redLED2.lightOn();
             criticalError = true;
 
-            printf("Card init failed: %d\n", err);
+            printf("Card init failed: error %d\n", err);
           }
 
           else {
@@ -59,11 +58,6 @@ class SDWrite {
               // Add readings to file
               for (int i = 0; i < size; i++) {
                 time_t curr = values[i].fetchDateTime();
-
-                printf("\nIt's writing this to the file:\nTemperature: "
-                       "%f\nPressure: %f\nLight levels: %f\nDate/time: %s\n\n",
-                       values[i].fetchTemperature(), values[i].fetchPressure(),
-                       values[i].fetchLightLevel(), ctime(&curr));
 
                 fprintf(fp,
                         "Temperature: %f\nPressure: %f\nLight levels: "
