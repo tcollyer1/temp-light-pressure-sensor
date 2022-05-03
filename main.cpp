@@ -46,7 +46,6 @@ using namespace std;
 extern void azureDemo();
 
 // Semaphores
-// Send data to Azure
 // Remote functions
 // Critical error handling
 
@@ -89,6 +88,7 @@ void setFlags3();
 void sendToAzure();
 void sendData();
 void setFlags4();
+void setFlags5();
 void start_processes();
 void test_func();
 
@@ -154,7 +154,7 @@ void flush() {
             criticalError = false;
             sdWrite.print_alarm();
 
-            timer4.attachFunc(&setFlags4, 30s);
+            timer4.attachFunc(&setFlags5, 30s);
             wait30Seconds();
             timer4.detachFunc();
 
@@ -330,7 +330,7 @@ void send_data() {
         goto cleanup;
     }
 
-    // Send ten message to the cloud (one per second)
+    // Send messages to the cloud
     // or until we receive a message from the cloud
     IOTHUB_MESSAGE_HANDLE message_handle;
     char message[80];
@@ -339,15 +339,19 @@ void send_data() {
             // If we have received a message from the cloud, don't send more messeges
             break;
         }
+
+        // Signal wait - waits for a new item to be added to the buffer and then sends it by using the latest() function, which peeks the newest sensor data item.
+        ThisThread::flags_wait_any(4);
+
         //Send data in this format:
         /*
             {
                 "LightLevel" : 0.12,
-                "Temperature" : 36.0
+                "Temperature" : 36.0,
+                "Pressure": 1018.02
             }
         */
-        // double light = (float) i;
-        // double temp  = (float)36.0f-0.1*(float)i;
+
         SensorData<float, time_t> current = latest();
 
         sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", current.fetchLightLevel(), current.fetchTemperature(), current.fetchPressure());
@@ -367,17 +371,15 @@ void send_data() {
             LogError("Failed to send message event, error: %d", res);
             goto cleanup;
         }
-
-        ThisThread::sleep_for(10s);
     }
 
     // If the user didn't manage to send a cloud-to-device message earlier,
     // let's wait until we receive one
-    while (!message_received) {
-        // Continue to receive messages in the communication thread
-        // which is internally created and maintained by the Azure SDK.
-        sleep();
-    }
+    // while (!message_received) {
+    //     // Continue to receive messages in the communication thread
+    //     // which is internally created and maintained by the Azure SDK.
+    //     sleep();
+    // }
 
 cleanup:
     IoTHubDeviceClient_Destroy(client_handle);
@@ -623,7 +625,7 @@ void waitOneMinute() {
 }
 
 void wait30Seconds() {
-    ThisThread::flags_wait_any(4);
+    ThisThread::flags_wait_any(5);
 }
 
 void setFlags3() {
@@ -632,6 +634,10 @@ void setFlags3() {
 
 void setFlags4() {
     azure_handler.flags_set(4);
+}
+
+void setFlags5() {
+    consumer.flags_set(5);
 }
 
 void set_flags(Thread thread_name, int flag) {
