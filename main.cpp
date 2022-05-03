@@ -89,8 +89,6 @@ void sendToAzure();
 void sendData();
 void setFlags4();
 void setFlags5();
-void start_processes();
-void test_func();
 
 // Azure remote functions
 SensorData<float, time_t> latest();
@@ -388,24 +386,12 @@ cleanup:
 // ********************************************************************************************************
 
 
-void test_func() {
-    printf("\n\\test_func() is starting.\n");
-    if (azure.connect() && azure.setTime()) {
-        send_data();
-    }
-}
-
-
 int main() {
 
     // START - UNCOMMENT THE FOLLOWING TWO LINES TO TEST YOUR BOARD AND SEE THE DEMO CODE WORKING
     // UOP_MSB_TEST  board;  //This class is purely for testing. Do no use it otherwise!!!!!!!!!!!
     // board.test();         //Look inside here to see how this works
     // END
-
-    // SensorData<float, time_t> temp;
-    // temp.setSensorReadings();
-    // valuesBuffer.writeToBuffer(temp);
 
     timer.attachFunc(&setFlags, 10s);
     timer2.attachFunc(&setFlags2, 60s);
@@ -414,14 +400,6 @@ int main() {
     producer.start(getSensorData); // 1st thread for acquiring the sensor data (high priority) and writing to buffer (producer)
     consumer.start(readBuffer); // 2nd thread for reading buffer and writing to SD (consumer)
     button_handler.start(waitForBtnPress); // 3rd thread for listening for blue button press - for user to cancel alarm message
-    
-    
-
-    // Azure azure;
-    // if (!azure.connect()) return -1;
-    // if (!azure.setTime()) return -1;
-
-
     
 
     
@@ -448,11 +426,7 @@ int main() {
 void getSensorData() {
     SensorData<float, time_t> data;
 
-    // ThisThread::flags_wait_any(10);
-    // azure_handler.join();
-
     while (true) {
-        // printf("\nSensor data loop starting again\n");
 
         // Temperature, light levels, pressure
         float temp, pres, light;
@@ -477,8 +451,6 @@ void getSensorData() {
             writeAlarmMsg();
         }
 
-        // aaa.demo(light, temp, pres);
-
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
 
@@ -488,7 +460,6 @@ void getSensorData() {
 
 void sendToAzure() {
     if (azure.connect() && azure.setTime()) {
-        //start_processes();
         send_data();
     }
 
@@ -497,35 +468,6 @@ void sendToAzure() {
         redLED.lightOn();
         error("\n[!] Connection to Azure failed...\n");
     }
-
-    // bool run = true;
-    // Azure azure;
-    // AzureIoT a_iot;
-
-    // if (!azure.connect() || !azure.setTime()) {
-    //     run = false;
-    //     error("\n[!] Connection to Azure failed...\n");
-
-    //     // Critical error?
-    //     redLED.lightOn();
-    // }
-
-    // if (run) {
-    //     start_processes();
-
-    //     while (run) {
-    //         printf("\nAzure waiting to send...\n");
-    //         ThisThread::flags_wait_any(4); // Wait for very first item to be added to  buffer
-    //         printf("\nAzure now sending\n");
-    //         send_data();
-
-    //         SensorData<float, time_t> latestData = latest();
-    //         a_iot.send_data(latestData.fetchLightLevel(), latestData.fetchTemperature(), latestData.fetchPressure());
-    //         aaa.send_data(latestData.fetchLightLevel(), latestData.fetchTemperature(), latestData.fetchPressure());        
-    //     }
-    // }
-    
-    
 }
 
 
@@ -533,9 +475,6 @@ void sendToAzure() {
 // Reads values currently in the buffer and writes these in the SD card. Triggers every minute.
 void readBuffer() {
     SDWrite sdObj(redLED);
-
-    // ThisThread::flags_wait_any(10);
-    // azure_handler.join();
     
     while (true) {
         ThisThread::flags_wait_any(2);
@@ -558,7 +497,6 @@ void readBuffer() {
             wait30Seconds();
             timer4.detachFunc();
 
-            // Restart board here
             error("\nCould not write data to the SD card.\n");
         }
     }
@@ -572,12 +510,6 @@ void setFlags() {
 // Sets flags for the second timer - reading from the buffer and writing to the SD card every minute.
 void setFlags2() {
     consumer.flags_set(2);
-}
-
-void start_processes() {
-    producer.flags_set(10);
-    consumer.flags_set(10);
-    button_handler.flags_set(10);
 }
 
 // Writes alarm message to the terminal.
