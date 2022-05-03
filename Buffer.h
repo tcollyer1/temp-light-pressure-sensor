@@ -111,7 +111,7 @@ class Buffer {
             int idx;
 
             if (front == 0) {
-                idx = 20;
+                idx = 19;
             }
             else {
                 idx = front - 1;
