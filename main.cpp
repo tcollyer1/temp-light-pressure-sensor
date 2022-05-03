@@ -106,7 +106,6 @@ ILED &redLED = red;
 Buffer valuesBuffer(redLED);
 
 Azure azure;
-//AzureIoT a_iot;
 
 // Threads
 Thread producer(osPriorityHigh);
@@ -341,34 +340,29 @@ void send_data() {
         // Signal wait - waits for a new item to be added to the buffer and then sends it by using the latest() function, which peeks the newest sensor data item.
         ThisThread::flags_wait_any(4);
 
-        //Send data in this format:
-        /*
-            {
-                "LightLevel" : 0.12,
-                "Temperature" : 36.0,
-                "Pressure": 1018.02
+        // Only send a message if the buffer is not empty
+        if (!valuesBuffer.bufferIsEmpty()) {
+            SensorData<float, time_t> current = latest();
+
+            sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", current.fetchLightLevel(), current.fetchTemperature(), current.fetchPressure());
+            LogInfo("Sending: \"%s\"", message);
+
+            message_handle = IoTHubMessage_CreateFromString(message);
+            if (message_handle == nullptr) {
+                LogError("Failed to create message");
+                goto cleanup;
             }
-        */
 
-        SensorData<float, time_t> current = latest();
+            res = IoTHubDeviceClient_SendEventAsync(client_handle, message_handle, on_message_sent, nullptr);
+            IoTHubMessage_Destroy(message_handle); // message already copied into the SDK
 
-        sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", current.fetchLightLevel(), current.fetchTemperature(), current.fetchPressure());
-        // sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", 0.22, 0.33, 0.44);
-                LogInfo("Sending: \"%s\"", message);
-
-        message_handle = IoTHubMessage_CreateFromString(message);
-        if (message_handle == nullptr) {
-            LogError("Failed to create message");
-            goto cleanup;
+            if (res != IOTHUB_CLIENT_OK) {
+                LogError("Failed to send message event, error: %d", res);
+                goto cleanup;
+            }
         }
 
-        res = IoTHubDeviceClient_SendEventAsync(client_handle, message_handle, on_message_sent, nullptr);
-        IoTHubMessage_Destroy(message_handle); // message already copied into the SDK
-
-        if (res != IOTHUB_CLIENT_OK) {
-            LogError("Failed to send message event, error: %d", res);
-            goto cleanup;
-        }
+        
     }
 
     // If the user didn't manage to send a cloud-to-device message earlier,
