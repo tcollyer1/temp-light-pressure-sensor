@@ -9,15 +9,17 @@
 #include <iterator>
 #include "mbed.h"
 
+const int BUFFER_SIZE = 20;
 
-Semaphore spaceInBuffer(20);
+Semaphore spaceInBuffer(BUFFER_SIZE);
 Semaphore samplesInBuffer;
+
 
 // Buffer class - for requirement 3
 class Buffer {
     private:
         ILED &redLED;
-        SensorData<float, time_t> buffer[20]; // Array to hold buffer items
+        SensorData<float, time_t> buffer[BUFFER_SIZE]; // Array to hold buffer items
         int front = 0, back = 0;
         int counter = 0;
         Mutex lock;
@@ -41,7 +43,7 @@ class Buffer {
 
                 buffer[front] = item;
                 counter++;
-                front = (front + 1) % 20;
+                front = (front + 1) % BUFFER_SIZE;
 
                 // Release mutex lock
                 lock.unlock();
@@ -53,13 +55,13 @@ class Buffer {
 
         // Returns whether buffer is full or not.
         bool bufferIsFull() {
-            if (counter == 20) return true;
+            if (counter == BUFFER_SIZE) return true;
             else return false;
         }
 
         // Returns whether buffer is empty or not.
         bool bufferIsEmpty() {
-            if (front == back && counter != 20) return true;
+            if (front == back && counter != BUFFER_SIZE) return true;
             else return false;   
         }
 
@@ -77,7 +79,7 @@ class Buffer {
             lock.lock();
 
             SensorData<float, time_t> itemToRead = buffer[back];
-            back = (back + 1) % 20;
+            back = (back + 1) % BUFFER_SIZE;
             // printf("\nBack index is now %d\n", back);
             redLED.lightOff();
             counter--;
@@ -98,7 +100,7 @@ class Buffer {
             int idx;
 
             if (front == 0) {
-                idx = 19;
+                idx = BUFFER_SIZE - 1;
             }
             else {
                 idx = front - 1;

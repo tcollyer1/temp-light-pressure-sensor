@@ -119,6 +119,7 @@ bool criticalError = false;
 
 
 /////////////////////////////////////////////////
+
 SensorData<float, time_t> latest() {
     SensorData<float, time_t> latest;
     
@@ -401,7 +402,7 @@ void send_data() {
     char message[80];
     while (true) {
         if (message_received) {
-            // If we have received a message from the cloud, don't send more messeges
+            // If we have received a message from the cloud, don't send more messages
             break;
         }
 
