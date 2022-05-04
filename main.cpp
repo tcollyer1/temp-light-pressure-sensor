@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//#include "mbed.h"
 #include "rtos/ThisThread.h"
-// #include "Buffer.h"
 
 #include "certs.h"
 #include "iothub.h"
@@ -25,21 +23,15 @@
 
 
 #include "uop_msb.h"
-//#include "rtos/ThisThread.h"
-//#include "azure_c_shared_utility/xlogging.h"
 #include <chrono>
 #include <cstring>
 #include <ctime>
 #include <string.h>
 #include <string>
-#include <stdlib.h> 
+#include <stdlib.h> // For char* to float conversion
 
-// #include "SDWrite.h"
-
-// #include "MbedTicker.h"
 #include "MbedButton.h"
 
-//#include "AzureIoT.h"
 
 using namespace uop_msb;
 using namespace std;
@@ -95,8 +87,6 @@ void setFlags5();
 SensorData<float, time_t> latest();
 int buffered();
 void flush();
-// void set_low(float p, float l, float t);
-// void set_high(float p, float l, float t);
 void set_high_pressure(float p);
 void set_low_pressure(float p);
 void set_high_temperature(float t);
@@ -166,18 +156,6 @@ void flush() {
             error("\nCould not write data to the SD card.\n");
         }
 }
-
-// void set_low(float t, float p, float l) {
-//     PLower = p;
-//     LLower = l;
-//     TLower = t;
-// }
-
-// void set_high(float t, float p, float l) {
-//     PUpper = p;
-//     LUpper = l;
-//     TUpper = t;
-// }
 
 void set_high_pressure(float p) {
     PUpper = p;
@@ -310,16 +288,7 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
         changed_value = LUpper;
     }
 
-    // if ( strncmp("true", (const char*)payload, size) == 0 ) {
-    //     printf("LED ON\n");
-    //     led1 = 1;
-    // } else {
-    //     printf("LED OFF\n");
-    //     led1 = 0;
-    // }
-
     int status = 200;
-    // char RESPONSE_STRING[] = "{ \"Response\": \"This is the response from the device\" }";
     char RESPONSE_STRING[64];
     sprintf(RESPONSE_STRING, "{ \"Response\" : %s changed to %f }", item_changed, changed_value);
 
@@ -436,14 +405,6 @@ void send_data() {
         
     }
 
-    // If the user didn't manage to send a cloud-to-device message earlier,
-    // let's wait until we receive one
-    // while (!message_received) {
-    //     // Continue to receive messages in the communication thread
-    //     // which is internally created and maintained by the Azure SDK.
-    //     sleep();
-    // }
-
 cleanup:
     IoTHubDeviceClient_Destroy(client_handle);
     IoTHub_Deinit();
@@ -467,15 +428,6 @@ int main() {
     button_handler.start(waitForBtnPress); // 3rd thread for listening for blue button press - for user to cancel alarm message
     
 
-    
-
-
-
-
-
-    // The two lines below will demonstrate the features on the MSB. See uop_msb.cpp for examples of how to use different aspects of the MSB
-    // UOP_MSB_TEST board;  //Only uncomment for testing - DO NOT USE OTHERWISE
-    // board.test();        //Only uncomment for testing - DO NOT USE OTHERWISE
 
     // Write fake data to Azure IoT Center. Don't forget to edit azure_cloud_credentials.h
     // printf("You will need your own connection string in azure_cloud_credentials.h\n");
@@ -591,9 +543,6 @@ void waitForBtnPress() {
 
     MbedTicker time;
     ITick<std::chrono::microseconds> &timer3 = time;
-
-    // ThisThread::flags_wait_any(10);
-    // azure_handler.join();
 
     while (true) {
         blueBtn.waitForBtnPress();

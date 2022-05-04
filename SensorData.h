@@ -2,7 +2,6 @@
 
 #include "AzureServer.h"
 #include "uop_msb.h"
-//#include "ILightReadings.h"
 #include "MbedLDR.h"
 
 // Sensor data class - for requirement 1. Uses template so any numerical format of sensor measurements can be used.
@@ -27,38 +26,6 @@ class SensorData {
         }
 
     public:
-        // Changes upper and/or lower temperature limit.
-        // void modify_upper_lower_temperature(SensorType upper, SensorType lower) {
-        //     if (upper != 0) { // 0 as "default" parameter - keep as the same
-        //         TUpper = upper;
-        //     }
-
-        //     if (lower != 0) {
-        //         TLower = lower;
-        //     }
-        // }
-
-        // // Changes upper and/or lower pressure limit.
-        // void modify_upper_lower_pressure(SensorType upper, SensorType lower) {
-        //     if (upper != 0) { // 0 as "default" parameter - keep as the same
-        //         PUpper = upper;
-        //     }
-
-        //     if (lower != 0) {
-        //         PLower = lower;
-        //     }
-        // }
-
-        // // Changes upper and/or lower light level limit.
-        // void modify_upper_lower_light(SensorType upper, SensorType lower) {
-        //     if (upper != 0) { // 0 as "default" parameter - keep as the same
-        //         LUpper = upper;
-        //     }
-
-        //     if (lower != 0) {
-        //         LLower = lower;
-        //     }
-        // }
 
         // Collects a set of sensor readings and stores it within the SensorData object.
         void setSensorReadings() {

@@ -8,7 +8,6 @@
 #include <iostream>
 #include <iterator>
 #include "mbed.h"
-//#include "MbedLDR.h"
 
 
 Semaphore spaceInBuffer(20);
@@ -40,21 +39,15 @@ class Buffer {
                 // Acquire mutex lock on critical section - adding data
                 lock.lock();
 
-                // time_t the_time = item.fetchDateTime();
-                // printf("This is what it's adding to the buffer: \nTemp: %f\nPres: %f\nLight: %f\nDate: %s", item.fetchTemperature(), item.fetchPressure(), item.fetchLightLevel(), ctime(&the_time));
- 
                 buffer[front] = item;
                 counter++;
                 front = (front + 1) % 20;
-                // printf("\nFront index is now %d\n", front);
 
                 // Release mutex lock
                 lock.unlock();
 
                 // samplesInBuffer.release(); // Increment num. samples
                 // spaceInBuffer.acquire(); // Decrement space
-
-                // printf("\nFrom writeToBuffer(): There are %d items in the buffer right now\n", bufferCount());
             }
         }
 
@@ -77,12 +70,8 @@ class Buffer {
 
         // Reads the first, oldest item out of the FIFO buffer.
         SensorData<float, time_t> readFromBuffer() {
-            // printf("\nFrom readFromBuffer() before read: There are %d items in the buffer right now", bufferCount());
-            // printf("\nTrying to read from buffer... (May be blocking)");
 
             // samplesInBuffer.try_acquire_for(10s); // Try to decrease... if it's 0 already it's empty, blocks for 10 secs
-
-            //printf("\nBuffer's apparently not empty so it's reading\n");
             
             // Acquire mutex lock on critical section - removing data to read
             lock.lock();
@@ -100,8 +89,6 @@ class Buffer {
             // samplesInBuffer.release(); // Increment space
 
             time_t the_time = itemToRead.fetchDateTime();
-            // printf("This is the item that's been read: \nTemp: %f\nPres: %f\nLight: %f\nDate: %s", itemToRead.fetchTemperature(), itemToRead.fetchPressure(), itemToRead.fetchLightLevel(), ctime(&the_time));
-            // printf("\nFrom readFromBuffer() after read: There are %d items in the buffer right now\n", bufferCount());
 
             return itemToRead;
             

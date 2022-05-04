@@ -7,7 +7,6 @@
 // Class to handle Mbed button presses
 class MbedButton : public IButton {
     private:
-        //DigitalIn button;
         PushSwitch button;
 
     public:
