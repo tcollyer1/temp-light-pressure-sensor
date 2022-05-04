@@ -32,6 +32,7 @@
 #include <ctime>
 #include <string.h>
 #include <string>
+#include <stdlib.h> 
 
 // #include "SDWrite.h"
 
@@ -94,8 +95,14 @@ void setFlags5();
 SensorData<float, time_t> latest();
 int buffered();
 void flush();
-void set_low(float p, float l, float t);
-void set_high(float p, float l, float t);
+// void set_low(float p, float l, float t);
+// void set_high(float p, float l, float t);
+void set_high_pressure(float p);
+void set_low_pressure(float p);
+void set_high_temperature(float t);
+void set_low_temperature(float t);
+void set_high_light(float l);
+void set_low_light(float l);
 
 
 // Mbed class objects for LED - uses interface
@@ -160,17 +167,43 @@ void flush() {
         }
 }
 
-void set_low(float p, float l, float t) {
+// void set_low(float t, float p, float l) {
+//     PLower = p;
+//     LLower = l;
+//     TLower = t;
+// }
+
+// void set_high(float t, float p, float l) {
+//     PUpper = p;
+//     LUpper = l;
+//     TUpper = t;
+// }
+
+void set_high_pressure(float p) {
+    PUpper = p;
+}
+
+void set_low_pressure(float p) {
     PLower = p;
-    LLower = l;
+}
+
+void set_high_temperature(float t) {
+    TUpper = t;
+}
+
+void set_low_temperature(float t) {
     TLower = t;
 }
 
-void set_high(float p, float l, float t) {
-    PUpper = p;
+void set_high_light(float l) {
     LUpper = l;
-    TUpper = t;
 }
+
+void set_low_light(float l) {
+    LLower = l;
+}
+
+
 /////////////////////////////////////////////////
 
 
@@ -207,6 +240,9 @@ static IOTHUBMESSAGE_DISPOSITION_RESULT on_message_received(IOTHUB_MESSAGE_HANDL
     message_received = true;
     LogInfo("Message body: %.*s", len, data_ptr);
 
+    // float val = *data_ptr;
+    // printf("\nValue received was %f\n", val);
+
     // if (strncmp("true", (const char*)data_ptr, len) == 0) {
     //     led2 = 1;
     // } else {
@@ -239,6 +275,41 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     printf("Device Method name:    %s\r\n", method_name);
     printf("Device Method payload: %.*s\r\n", (int)size, (const char*)payload);
 
+    char* item_changed;
+    float changed_value;
+
+    if (strcmp("set_high_pressure", method_name) == 0) {
+        //printf("\nValue received as a float is %s\n", (const char*)payload);
+        set_high_pressure(atof((const char*)payload));
+        item_changed = "PUpper";
+        changed_value = PUpper;
+    }
+    else if (strcmp("set_low_pressure", method_name) == 0) {
+        set_low_pressure(atof((const char*)payload));
+        item_changed = "PLower";
+        changed_value = PLower;
+    }
+    else if (strcmp("set_low_temperature", method_name) == 0) {
+        set_low_temperature(atof((const char*)payload));
+        item_changed = "TLower";
+        changed_value = TLower;
+    }
+    else if (strcmp("set_high_temperature", method_name) == 0) {
+        set_high_temperature(atof((const char*)payload));
+        item_changed = "TUpper";
+        changed_value = TUpper;
+    }
+    else if (strcmp("set_low_light", method_name) == 0) {
+        set_low_light(atof((const char*)payload));
+        item_changed = "LLower";
+        changed_value = LLower;
+    }
+    else if (strcmp("set_high_light", method_name) == 0) {
+        set_high_light(atof((const char*)payload));
+        item_changed = "LUpper";
+        changed_value = LUpper;
+    }
+
     // if ( strncmp("true", (const char*)payload, size) == 0 ) {
     //     printf("LED ON\n");
     //     led1 = 1;
@@ -248,9 +319,9 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     // }
 
     int status = 200;
-    //char RESPONSE_STRING[] = "{ \"Response\": \"This is the response from the device\" }";
+    // char RESPONSE_STRING[] = "{ \"Response\": \"This is the response from the device\" }";
     char RESPONSE_STRING[64];
-    // sprintf(RESPONSE_STRING, "{ \"Response\" : %d }", blueButton.read());
+    sprintf(RESPONSE_STRING, "{ \"Response\" : %s changed to %f }", item_changed, changed_value);
 
     printf("\r\nResponse status: %d\r\n", status);
     printf("Response payload: %s\r\n\r\n", RESPONSE_STRING);
