@@ -86,7 +86,7 @@ void setFlags5();
 // Azure remote functions
 SensorData<float, time_t> latest();
 int buffered();
-void flush();
+void flush(bool &err);
 void set_high_pressure(float p);
 void set_low_pressure(float p);
 void set_high_temperature(float t);
@@ -133,7 +133,7 @@ int buffered() {
     return count;
 }
 
-void flush() {
+void flush(bool &err) {
     int size = buffered();
     SensorData<float, time_t> items[size];
 
@@ -143,6 +143,7 @@ void flush() {
 
     SDWrite sdWrite(redLED);
     sdWrite.writeToSD(items, size, criticalError);
+    err = criticalError;
 
         if (criticalError) {
             criticalError = false;
@@ -218,15 +219,6 @@ static IOTHUBMESSAGE_DISPOSITION_RESULT on_message_received(IOTHUB_MESSAGE_HANDL
     message_received = true;
     LogInfo("Message body: %.*s", len, data_ptr);
 
-    // float val = *data_ptr;
-    // printf("\nValue received was %f\n", val);
-
-    // if (strncmp("true", (const char*)data_ptr, len) == 0) {
-    //     led2 = 1;
-    // } else {
-    //     led2 = 0;
-    // }
-
     return IOTHUBMESSAGE_ACCEPTED;
 }
 
@@ -253,44 +245,80 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     printf("Device Method name:    %s\r\n", method_name);
     printf("Device Method payload: %.*s\r\n", (int)size, (const char*)payload);
 
-    char* item_changed;
-    float changed_value;
+    int status = 200;
+    char RESPONSE_STRING[100];
 
-    if (strcmp("set_high_pressure", method_name) == 0) {
-        //printf("\nValue received as a float is %s\n", (const char*)payload);
-        set_high_pressure(atof((const char*)payload));
-        item_changed = "PUpper";
-        changed_value = PUpper;
+    // REMOTE FUNCTION 1 - latest()
+    if (strcmp("latest", method_name) == 0) {
+        SensorData<float, time_t> latest_data = latest();
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"pressure\": %f, \"lightLevel\": %f, \"temperature\": %f }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature());
     }
+
+    // REMOTE FUNCTION 2 - buffered()
+    else if (strcmp("buffered", method_name) == 0) {
+        int items_buffered = buffered();
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"buffered\": %d }", items_buffered);
+    }
+
+    // REMOTE FUNCTION 3 - flush()
+    else if (strcmp("flush", method_name) == 0) {
+        bool write_error = false;
+        flush(write_error);
+
+        if (write_error) {
+            sprintf(RESPONSE_STRING, "{ \"Response\" : \"Samples not written to the SD.\" }");
+        }
+
+        else {
+            sprintf(RESPONSE_STRING, "{ \"Response\" : \"Samples written to the SD.\" }");
+        }
+    }
+
+    // REMOTE FUNCTION 4 - set_low() (pressure)
     else if (strcmp("set_low_pressure", method_name) == 0) {
         set_low_pressure(atof((const char*)payload));
-        item_changed = "PLower";
-        changed_value = PLower;
-    }
-    else if (strcmp("set_low_temperature", method_name) == 0) {
-        set_low_temperature(atof((const char*)payload));
-        item_changed = "TLower";
-        changed_value = TLower;
-    }
-    else if (strcmp("set_high_temperature", method_name) == 0) {
-        set_high_temperature(atof((const char*)payload));
-        item_changed = "TUpper";
-        changed_value = TUpper;
-    }
-    else if (strcmp("set_low_light", method_name) == 0) {
-        set_low_light(atof((const char*)payload));
-        item_changed = "LLower";
-        changed_value = LLower;
-    }
-    else if (strcmp("set_high_light", method_name) == 0) {
-        set_high_light(atof((const char*)payload));
-        item_changed = "LUpper";
-        changed_value = LUpper;
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : PLower changed to %f }", PLower);
     }
 
-    int status = 200;
-    char RESPONSE_STRING[64];
-    sprintf(RESPONSE_STRING, "{ \"Response\" : %s changed to %f }", item_changed, changed_value);
+    // REMOTE FUNCTION 4 - set_low() (temperature)
+    else if (strcmp("set_low_temperature", method_name) == 0) {
+        set_low_temperature(atof((const char*)payload));
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : TLower changed to %f }", TLower);
+    }
+
+    // REMOTE FUNCTION 4 - set_low() (light levels)
+    else if (strcmp("set_low_light", method_name) == 0) {
+        set_low_light(atof((const char*)payload));
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : LLower changed to %f }", LLower);
+    }
+
+    // REMOTE FUNCTION 5 - set_high() (pressure)
+    else if (strcmp("set_high_pressure", method_name) == 0) {
+        set_high_pressure(atof((const char*)payload));
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : PUpper changed to %f }", PUpper);
+    }
+
+    
+    // REMOTE FUNCTION 5 - set_high() (temperature)
+    else if (strcmp("set_high_temperature", method_name) == 0) {
+        set_high_temperature(atof((const char*)payload));
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : TUpper changed to %f }", TUpper);
+    }
+
+    // REMOTE FUNCTION 5 - set_high() (light levels)
+    else if (strcmp("set_high_light", method_name) == 0) {
+        set_high_light(atof((const char*)payload));
+
+        sprintf(RESPONSE_STRING, "{ \"Response\" : LUpper changed to %f }", LUpper);
+    }
+
 
     printf("\r\nResponse status: %d\r\n", status);
     printf("Response payload: %s\r\n\r\n", RESPONSE_STRING);
