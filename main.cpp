@@ -294,28 +294,28 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     else if (strcmp("set_low_pressure", method_name) == 0) {
         set_low_pressure(atof((const char*)payload));
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : PLower changed to %f }", PLower);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"PLower changed to %f\" }", PLower);
     }
 
     // REMOTE FUNCTION 4 - set_low() (temperature)
     else if (strcmp("set_low_temperature", method_name) == 0) {
         set_low_temperature(atof((const char*)payload));
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : TLower changed to %f }", TLower);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"TLower changed to %f\" }", TLower);
     }
 
     // REMOTE FUNCTION 4 - set_low() (light levels)
     else if (strcmp("set_low_light", method_name) == 0) {
         set_low_light(atof((const char*)payload));
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : LLower changed to %f }", LLower);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"LLower changed to %f\" }", LLower);
     }
 
     // REMOTE FUNCTION 5 - set_high() (pressure)
     else if (strcmp("set_high_pressure", method_name) == 0) {
         set_high_pressure(atof((const char*)payload));
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : PUpper changed to %f }", PUpper);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"PUpper changed to %f\" }", PUpper);
     }
 
     
@@ -323,14 +323,14 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     else if (strcmp("set_high_temperature", method_name) == 0) {
         set_high_temperature(atof((const char*)payload));
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : TUpper changed to %f }", TUpper);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"TUpper changed to %f\" }", TUpper);
     }
 
     // REMOTE FUNCTION 5 - set_high() (light levels)
     else if (strcmp("set_high_light", method_name) == 0) {
         set_high_light(atof((const char*)payload));
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : LUpper changed to %f }", LUpper);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"LUpper changed to %f\" }", LUpper);
     }
 
 
