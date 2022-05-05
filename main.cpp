@@ -39,7 +39,6 @@ using namespace std;
 extern void azureDemo();
 
 // Semaphores
-// Remote functions
 // Critical error handling
 
 // Sensor Limits
@@ -82,6 +81,8 @@ void sendToAzure();
 void sendData();
 void setFlags4();
 void setFlags5();
+// void setFlags6();
+// void bufferFlush();
 
 // Azure remote functions
 SensorData<float, time_t> latest();
@@ -109,6 +110,7 @@ Thread producer(osPriorityHigh);
 Thread consumer(osPriorityNormal);
 Thread button_handler(osPriorityNormal);
 Thread azure_handler(osPriorityNormal);
+// Thread azure_buffer_flush(osPriorityNormal);
 
 
 // Bool to determine whether to show alarm or not
@@ -116,6 +118,8 @@ bool showAlarm = true;
 
 // Bool that determines whether a critical error has been encountered or not
 bool criticalError = false;
+
+// bool notWritten = false;
 
 
 /////////////////////////////////////////////////
@@ -185,6 +189,13 @@ void set_low_light(float l) {
 
 
 /////////////////////////////////////////////////
+
+// void bufferFlush() {
+//     while (true) {
+//         ThisThread::flags_wait_any(6);
+//         flush(notWritten);
+//     }
+// }
 
 
 // ********************************************************************************************************
@@ -267,8 +278,10 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     else if (strcmp("flush", method_name) == 0) {
         bool write_error = false;
         flush(write_error);
+        //setFlags6();
 
         if (write_error) {
+            // notWritten = false;
             sprintf(RESPONSE_STRING, "{ \"Response\" : \"Samples not written to the SD.\" }");
         }
 
@@ -451,10 +464,11 @@ int main() {
     timer.attachFunc(&setFlags, 10s);
     timer2.attachFunc(&setFlags2, 60s);
     
-    azure_handler.start(sendToAzure);
+    azure_handler.start(sendToAzure); // 4th thread, responsible for connecting to and sending data to Azure
     producer.start(getSensorData); // 1st thread for acquiring the sensor data (high priority) and writing to buffer (producer)
     consumer.start(readBuffer); // 2nd thread for reading buffer and writing to SD (consumer)
     button_handler.start(waitForBtnPress); // 3rd thread for listening for blue button press - for user to cancel alarm message
+    // azure_buffer_flush.start(bufferFlush); // 5th thread for emptying buffer/writing to SD for Azure
     
 
 
@@ -618,3 +632,7 @@ void setFlags5() {
 void set_flags(Thread thread_name, int flag) {
     thread_name.flags_set(flag);
 }
+
+// void setFlags6() {
+//     azure_buffer_flush.flags_set(6);
+// }

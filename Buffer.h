@@ -80,17 +80,14 @@ class Buffer {
 
             SensorData<float, time_t> itemToRead = buffer[back];
             back = (back + 1) % BUFFER_SIZE;
-            // printf("\nBack index is now %d\n", back);
             redLED.lightOff();
             counter--;
 
             // Release mutex lock
             lock.unlock();
 
-            // spaceInBuffer.acquire(); // Decrement num. samples
-            // samplesInBuffer.release(); // Increment space
-
-            time_t the_time = itemToRead.fetchDateTime();
+            // spaceInBuffer.release(); // Increment space
+            // samplesInBuffer.acquire(); // Decrement num. samples
 
             return itemToRead;
             
@@ -109,7 +106,6 @@ class Buffer {
             SensorData<float, time_t> itemToPeek = buffer[idx];
 
             time_t date_time = itemToPeek.fetchDateTime();
-            //printf("\n[***] The item it's peeking...\nTemp: %f\nPressure: %f\nLight levels: %f\nDate/time: %s\n", itemToPeek.fetchTemperature(), itemToPeek.fetchPressure(), itemToPeek.fetchLightLevel(), ctime(&date_time));
 
             return itemToPeek;
         }
