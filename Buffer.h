@@ -9,11 +9,7 @@
 #include <iterator>
 #include "mbed.h"
 
-const int BUFFER_SIZE = 20;
-
-Semaphore spaceInBuffer(BUFFER_SIZE);
-Semaphore samplesInBuffer(0);
-
+const int BUFFER_SIZE = 20; // Change this to alter buffer size
 
 // Buffer class - for requirement 3
 class Buffer {
@@ -23,10 +19,12 @@ class Buffer {
         int front = 0, back = 0;
         int counter = 0;
         Mutex lock;
+        Semaphore spaceInBuffer;
+        Semaphore samplesInBuffer;
         
 
     public:
-        Buffer(ILED &led) : redLED(led) {}
+        Buffer(ILED &led) : redLED(led), spaceInBuffer(BUFFER_SIZE) {}
 
         // Writes an item to the FIFO buffer.
         void writeToBuffer(SensorData<float, time_t> item) {
@@ -45,11 +43,12 @@ class Buffer {
 
                 buffer[front] = item;
                 counter++;
-                // printf("\nCounter: %d\n", counter);
 
                 front = (front + 1) % BUFFER_SIZE;
+
                 // Release mutex lock
                 lock.unlock();
+
                 samplesInBuffer.release(); // Increment num. samples
             }
         }
@@ -73,8 +72,7 @@ class Buffer {
 
         // Reads the first, oldest item out of the FIFO buffer.
         SensorData<float, time_t> readFromBuffer() {
-
-            bool success = samplesInBuffer.try_acquire_for(60s); // Try to decrease... if it's 0 already it's empty
+            samplesInBuffer.acquire(); // Try to decrease... if it's 0 already it's empty and will block
             
             // Acquire mutex lock on critical section - removing data to read
             lock.lock();

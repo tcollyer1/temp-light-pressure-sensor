@@ -82,7 +82,6 @@ void sendData();
 void setFlags4();
 void set_consumer_alarm_timer_flag();
 void set_bufferFlush_flag();
-void set_flag_flush_complete();
 void setFlags8();
 void set_azure_consumer_alarm_flag();
 void bufferFlush();
@@ -103,10 +102,11 @@ void set_low_light(float l);
 // Mbed class objects for LED - uses interface
 MbedLight red(PC_2, 0);
 ILED &redLED = red;
+ILED &redLED_2 = red;
 
-// Buffers
+// Buffers - one for writing to the SD and the other for sending to Azure
 Buffer valuesBuffer(redLED);
-// Buffer azureBuffer(redLED);
+Buffer azureBuffer(redLED_2);
 
 Azure azure;
 
@@ -133,33 +133,27 @@ bool notWritten = false;
 SensorData<float, time_t> latest() {
     SensorData<float, time_t> latest;
     
-    latest = valuesBuffer.peekFromBuffer();
-    // latest = azureBuffer.readFromBuffer();
+    latest = azureBuffer.readFromBuffer();
     
     return latest;
 }
 
 int buffered() {
-    int count = valuesBuffer.bufferCount();
-    // int count = azureBuffer.bufferCount();
+    int count = azureBuffer.bufferCount();
 
     return count;
 }
 
 void flush() {
-    // int size = azureBuffer.bufferCount();
-    int size = valuesBuffer.bufferCount();
+    int size = azureBuffer.bufferCount();
     SensorData<float, time_t> items[size];
 
     for (int i = 0; i < size; i++) {
-        printf("\nGetting buffer item at index %d\n", i);
-        items[i] = valuesBuffer.readFromBuffer();
-        // items[i] = azureBuffer.readFromBuffer();
+        items[i] = azureBuffer.readFromBuffer();
     }
 
     SDWrite sdWrite(redLED);
     sdWrite.writeToSD(items, size, criticalError);
-    // err = criticalError;
 
         if (criticalError) {
             criticalError = false;
@@ -175,6 +169,9 @@ void flush() {
         }
 }
 
+/*
+    Functions for setting high/low thresholds for sensor readings
+*/
 void set_high_pressure(float p) {
     PUpper = p;
 }
@@ -202,11 +199,11 @@ void set_low_light(float l) {
 
 /////////////////////////////////////////////////
 
+// Runs to flush the Azure buffer
 void bufferFlush() {
     while (true) {
         ThisThread::flags_wait_any(6);
         flush();
-        // set_flag_flush_complete();
     }
 }
 
@@ -229,7 +226,6 @@ static void on_connection_status(IOTHUB_CLIENT_CONNECTION_STATUS result, IOTHUB_
 // **************************************
 // * MESSAGE HANDLER (no response sent) *
 // **************************************
-//DigitalOut led2(LED2);
 static IOTHUBMESSAGE_DISPOSITION_RESULT on_message_received(IOTHUB_MESSAGE_HANDLE message, void* user_context)
 {
     LogInfo("Message received from IoT Hub");
@@ -260,8 +256,6 @@ static void on_message_sent(IOTHUB_CLIENT_CONFIRMATION_RESULT result, void* user
 // ****************************************************
 // * COMMAND HANDLER (sends a response back to Azure) *
 // ****************************************************
-// DigitalOut led1(LED1); 
-// DigitalIn blueButton(USER_BUTTON);
 static int on_method_callback(const char* method_name, const unsigned char* payload, size_t size, unsigned char** response, size_t* response_size, void* userContextCallback)
 {
     const char* device_id = (const char*)userContextCallback;
@@ -277,7 +271,7 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     if (strcmp("latest", method_name) == 0) {
         SensorData<float, time_t> latest_data = latest();
 
-        // sprintf(RESPONSE_STRING, "{ \"Response\" : \"pressure\": %f, \"lightLevel\": %f, \"temperature\": %f }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature());
+        // Respond with string
         sprintf(RESPONSE_STRING, "{ \"Response\" : \"PRESSURE: %f, LIGHT LEVEL: %f, TEMPERATURE: %f\" }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature());
     }
 
@@ -285,6 +279,7 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     else if (strcmp("buffered", method_name) == 0) {
         int items_buffered = buffered();
 
+        // Respond with int
         sprintf(RESPONSE_STRING, "{ \"Response\" : %d }", items_buffered);
     }
 
@@ -292,6 +287,7 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     else if (strcmp("flush", method_name) == 0) {
         set_bufferFlush_flag(); // Unblock azure_consumer thread to do the SD write
 
+        // Respond with string
         sprintf(RESPONSE_STRING, "{ \"Response\" : \"Samples are being written to the SD.\" }");
     }
 
@@ -424,34 +420,24 @@ void send_data() {
             break;
         }
 
-        // Signal wait - waits for a new item to be added to the buffer and then sends it by using the latest() function, which peeks the newest sensor data item.
-        ThisThread::flags_wait_any(4);
+        SensorData<float, time_t> current = azureBuffer.readFromBuffer(); // try and read, will block until not empty (using semaphores)
 
-        // Only send a message if the buffer is not empty
-        // if (!azureBuffer.bufferIsEmpty()) {
-            //SensorData<float, time_t> current = latest();
+        sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", current.fetchLightLevel(), current.fetchTemperature(), current.fetchPressure());
+        LogInfo("Sending: \"%s\"", message);
 
-            
-            // SensorData<float, time_t> current = azureBuffer.readFromBuffer();
-            SensorData<float, time_t> current = valuesBuffer.peekFromBuffer();
+        message_handle = IoTHubMessage_CreateFromString(message);
+        if (message_handle == nullptr) {
+          LogError("Failed to create message");
+          goto cleanup;
+        }
 
-            sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", current.fetchLightLevel(), current.fetchTemperature(), current.fetchPressure());
-            LogInfo("Sending: \"%s\"", message);
+        res = IoTHubDeviceClient_SendEventAsync(client_handle, message_handle, on_message_sent, nullptr);
+        IoTHubMessage_Destroy(message_handle); // message already copied into the SDK
 
-            message_handle = IoTHubMessage_CreateFromString(message);
-            if (message_handle == nullptr) {
-                LogError("Failed to create message");
-                goto cleanup;
-            }
-
-            res = IoTHubDeviceClient_SendEventAsync(client_handle, message_handle, on_message_sent, nullptr);
-            IoTHubMessage_Destroy(message_handle); // message already copied into the SDK
-
-            if (res != IOTHUB_CLIENT_OK) {
-                LogError("Failed to send message event, error: %d", res);
-                goto cleanup;
-            }
-        // }
+        if (res != IOTHUB_CLIENT_OK) {
+          LogError("Failed to send message event, error: %d", res);
+          goto cleanup;
+        }
 
         
     }
@@ -522,9 +508,7 @@ void getSensorData() {
 
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
-        // azureBuffer.writeToBuffer(data);
-
-        setFlags4(); // Unblock Azure thread so newest buffer item can now be sent
+        azureBuffer.writeToBuffer(data);
     }
 }
 
@@ -626,28 +610,24 @@ void waitOneMinute() {
     ThisThread::flags_wait_any(3);
 }
 
+// Makes the thread wait for its signal for 30 seconds
 void wait30Seconds() {
     ThisThread::flags_wait_any(5);
 }
 
+// Makes button handler thread unblock after a minute has passed
 void set_flag_unblock_button_thread() {
     button_handler.flags_set(3);
 }
 
-void setFlags4() {
-    azure_handler.flags_set(4);
-}
-
+// Unblocks consumer thread
 void set_consumer_alarm_timer_flag() {
     consumer.flags_set(5);
 }
 
+// Unblocks Azure consumer thread to run flush()
 void set_bufferFlush_flag() {
     azure_consumer.flags_set(6);
-}
-
-void set_flag_flush_complete() {
-    azure_handler.flags_set(7);
 }
 
 void set_azure_consumer_alarm_flag() {
