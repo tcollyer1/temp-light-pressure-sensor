@@ -589,7 +589,7 @@ void waitForBtnPress() {
 
     while (true) {
         blueBtn.waitForBtnPress();
-        ThisThread::sleep_for(50ms);
+        ThisThread::sleep_for(50ms); // Switch debounce
         blueBtn.waitForBtnRise();
 
         printf("[!] Alarm cancelled for 1 minute.\n");

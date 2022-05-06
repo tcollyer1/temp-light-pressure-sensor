@@ -38,17 +38,16 @@ class Buffer {
             }
 
             else {
+                spaceInBuffer.acquire(); // Decrement space
                 // Acquire mutex lock on critical section - adding data
                 lock.lock();
 
                 buffer[front] = item;
                 counter++;
                 front = (front + 1) % BUFFER_SIZE;
-
                 // Release mutex lock
                 lock.unlock();
-
-                // samplesInBuffer.release(); // Increment num. samples
+                samplesInBuffer.release(); // Increment num. samples
                 // spaceInBuffer.acquire(); // Decrement space
             }
         }
@@ -73,7 +72,7 @@ class Buffer {
         // Reads the first, oldest item out of the FIFO buffer.
         SensorData<float, time_t> readFromBuffer() {
 
-            // samplesInBuffer.try_acquire_for(10s); // Try to decrease... if it's 0 already it's empty, blocks for 10 secs
+            samplesInBuffer.try_acquire_for(10s); // Try to decrease... if it's 0 already it's empty, blocks for 10 secs
             
             // Acquire mutex lock on critical section - removing data to read
             lock.lock();
@@ -86,8 +85,7 @@ class Buffer {
             // Release mutex lock
             lock.unlock();
 
-            // spaceInBuffer.release(); // Increment space
-            // samplesInBuffer.acquire(); // Decrement num. samples
+            spaceInBuffer.release(); // Increment space
 
             return itemToRead;
             
