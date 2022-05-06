@@ -81,8 +81,9 @@ void sendToAzure();
 void sendData();
 void setFlags4();
 void setFlags5();
-// void setFlags6();
-// void bufferFlush();
+void setFlags6();
+void setFlags7();
+void bufferFlush();
 
 // Azure remote functions
 SensorData<float, time_t> latest();
@@ -100,8 +101,9 @@ void set_low_light(float l);
 MbedLight red(PC_2, 0);
 ILED &redLED = red;
 
-// Buffer
+// Buffers
 Buffer valuesBuffer(redLED);
+Buffer azureBuffer(redLED);
 
 Azure azure;
 
@@ -110,7 +112,7 @@ Thread producer(osPriorityHigh);
 Thread consumer(osPriorityNormal);
 Thread button_handler(osPriorityNormal);
 Thread azure_handler(osPriorityNormal);
-// Thread azure_buffer_flush(osPriorityNormal);
+Thread azure_consumer(osPriorityNormal);
 
 
 // Bool to determine whether to show alarm or not
@@ -119,7 +121,7 @@ bool showAlarm = true;
 // Bool that determines whether a critical error has been encountered or not
 bool criticalError = false;
 
-// bool notWritten = false;
+bool notWritten = false;
 
 
 /////////////////////////////////////////////////
@@ -127,13 +129,15 @@ bool criticalError = false;
 SensorData<float, time_t> latest() {
     SensorData<float, time_t> latest;
     
-    latest = valuesBuffer.peekFromBuffer();
+    // latest = valuesBuffer.peekFromBuffer();
+    latest = azureBuffer.readFromBuffer();
     
     return latest;
 }
 
 int buffered() {
-    int count = valuesBuffer.bufferCount();
+    // int count = valuesBuffer.bufferCount();
+    int count = azureBuffer.bufferCount();
 
     return count;
 }
@@ -143,7 +147,8 @@ void flush(bool &err) {
     SensorData<float, time_t> items[size];
 
     for (int i = 0; i < size; i++) {
-        items[i] = valuesBuffer.readFromBuffer();
+        // items[i] = valuesBuffer.readFromBuffer();
+        items[i] = azureBuffer.readFromBuffer();
     }
 
     SDWrite sdWrite(redLED);
@@ -190,12 +195,13 @@ void set_low_light(float l) {
 
 /////////////////////////////////////////////////
 
-// void bufferFlush() {
-//     while (true) {
-//         ThisThread::flags_wait_any(6);
-//         flush(notWritten);
-//     }
-// }
+void bufferFlush() {
+    while (true) {
+        ThisThread::flags_wait_any(6);
+        flush(notWritten);
+        setFlags7();
+    }
+}
 
 
 // ********************************************************************************************************
@@ -271,17 +277,18 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     else if (strcmp("buffered", method_name) == 0) {
         int items_buffered = buffered();
 
-        sprintf(RESPONSE_STRING, "{ \"Response\" : \"buffered\": %d }", items_buffered);
+        sprintf(RESPONSE_STRING, "{ \"Response\" : %d }", items_buffered);
     }
 
     // REMOTE FUNCTION 3 - flush()
     else if (strcmp("flush", method_name) == 0) {
         bool write_error = false;
         flush(write_error);
-        //setFlags6();
+        setFlags6();
+        ThisThread::flags_wait_any(7);
 
         if (write_error) {
-            // notWritten = false;
+            notWritten = false;
             sprintf(RESPONSE_STRING, "{ \"Response\" : \"Samples not written to the SD.\" }");
         }
 
@@ -423,7 +430,7 @@ void send_data() {
         ThisThread::flags_wait_any(4);
 
         // Only send a message if the buffer is not empty
-        if (!valuesBuffer.bufferIsEmpty()) {
+        // if (!azureBuffer.bufferIsEmpty()) {
             SensorData<float, time_t> current = latest();
 
             sprintf(message, "{ \"LightLevel\" : %f, \"Temperature\" : %f, \"Pressure\" : %f }", current.fetchLightLevel(), current.fetchTemperature(), current.fetchPressure());
@@ -442,7 +449,7 @@ void send_data() {
                 LogError("Failed to send message event, error: %d", res);
                 goto cleanup;
             }
-        }
+        // }
 
         
     }
@@ -468,7 +475,7 @@ int main() {
     producer.start(getSensorData); // 1st thread for acquiring the sensor data (high priority) and writing to buffer (producer)
     consumer.start(readBuffer); // 2nd thread for reading buffer and writing to SD (consumer)
     button_handler.start(waitForBtnPress); // 3rd thread for listening for blue button press - for user to cancel alarm message
-    // azure_buffer_flush.start(bufferFlush); // 5th thread for emptying buffer/writing to SD for Azure
+    azure_consumer.start(bufferFlush); // 5th thread for emptying buffer/writing to SD from Azure
     
 
 
@@ -513,8 +520,9 @@ void getSensorData() {
 
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
+        azureBuffer.writeToBuffer(data);
 
-        setFlags4();
+        setFlags4(); // Unblock Azure thread so newest buffer item can now be sent
     }
 }
 
@@ -540,7 +548,7 @@ void readBuffer() {
         ThisThread::flags_wait_any(2);
         printf("1 minute passed, trying to get buffer and write to file!\n");
 
-        int bufferLength = buffered();
+        int bufferLength = valuesBuffer.bufferCount();
         SensorData<float, time_t> contents[bufferLength];
         
         for (int i = 0; i < bufferLength; i++) {
@@ -629,10 +637,10 @@ void setFlags5() {
     consumer.flags_set(5);
 }
 
-void set_flags(Thread thread_name, int flag) {
-    thread_name.flags_set(flag);
+void setFlags6() {
+    azure_consumer.flags_set(6);
 }
 
-// void setFlags6() {
-//     azure_buffer_flush.flags_set(6);
-// }
+void setFlags7() {
+    azure_handler.flags_set(7);
+}
