@@ -12,7 +12,7 @@
 const int BUFFER_SIZE = 20;
 
 Semaphore spaceInBuffer(BUFFER_SIZE);
-Semaphore samplesInBuffer;
+Semaphore samplesInBuffer(0);
 
 
 // Buffer class - for requirement 3
@@ -39,16 +39,18 @@ class Buffer {
 
             else {
                 spaceInBuffer.acquire(); // Decrement space
+
                 // Acquire mutex lock on critical section - adding data
                 lock.lock();
 
                 buffer[front] = item;
                 counter++;
+                // printf("\nCounter: %d\n", counter);
+
                 front = (front + 1) % BUFFER_SIZE;
                 // Release mutex lock
                 lock.unlock();
                 samplesInBuffer.release(); // Increment num. samples
-                // spaceInBuffer.acquire(); // Decrement space
             }
         }
 
@@ -72,7 +74,7 @@ class Buffer {
         // Reads the first, oldest item out of the FIFO buffer.
         SensorData<float, time_t> readFromBuffer() {
 
-            samplesInBuffer.try_acquire_for(10s); // Try to decrease... if it's 0 already it's empty, blocks for 10 secs
+            bool success = samplesInBuffer.try_acquire_for(60s); // Try to decrease... if it's 0 already it's empty
             
             // Acquire mutex lock on critical section - removing data to read
             lock.lock();
@@ -91,6 +93,7 @@ class Buffer {
             
         }
 
+        // Reads newest item off the buffer without removing the item.
         SensorData<float, time_t> peekFromBuffer() {
             int idx;
 

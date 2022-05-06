@@ -45,7 +45,7 @@ class SDWrite {
               redLED2.lightOn();
               criticalError = true;
 
-              error("Could not open file for write\n");
+              printf("Could not open file for write\n");
               card.deinit();
 
             }
