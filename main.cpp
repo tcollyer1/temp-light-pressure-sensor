@@ -40,6 +40,7 @@ extern void azureDemo();
 
 // Semaphores
 // Critical error handling
+// TODO: Add producer for Azure
 
 // Sensor Limits
 float TUpper = 25.1; // (originally 22)
@@ -113,6 +114,7 @@ Thread consumer(osPriorityNormal);
 Thread button_handler(osPriorityNormal);
 Thread azure_handler(osPriorityNormal);
 Thread azure_consumer(osPriorityNormal);
+Thread azure_producer(osPriorityNormal);
 
 
 // Bool to determine whether to show alarm or not
@@ -143,7 +145,7 @@ int buffered() {
 }
 
 void flush(bool &err) {
-    int size = buffered();
+    int size = azureBuffer.bufferCount();
     SensorData<float, time_t> items[size];
 
     for (int i = 0; i < size; i++) {
@@ -520,7 +522,7 @@ void getSensorData() {
 
         // Write to buffer
         valuesBuffer.writeToBuffer(data);
-        azureBuffer.writeToBuffer(data);
+        azureBuffer.writeToBuffer(data); // PUT THIS IN SEPARATE FUNC FOR AZURE
 
         setFlags4(); // Unblock Azure thread so newest buffer item can now be sent
     }
