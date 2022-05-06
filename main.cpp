@@ -104,7 +104,7 @@ MbedLight red(PC_2, 0);
 ILED &redLED = red;
 ILED &redLED_2 = red;
 
-// Buffers - one for writing to the SD and the other for sending to Azure
+// Buffers - one for writing to the SD and the other for sending to Azure. Remote functions deal with Azure buffer.
 Buffer valuesBuffer(redLED);
 Buffer azureBuffer(redLED_2);
 
@@ -138,6 +138,7 @@ SensorData<float, time_t> latest() {
     return latest;
 }
 
+// Will typically only give 0 or 1 if connection is fast - data is sent in its own time on the azure_handler thread but sends whenever the buffer is no longer empty
 int buffered() {
     int count = azureBuffer.bufferCount();
 
@@ -270,9 +271,10 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     // REMOTE FUNCTION 1 - latest()
     if (strcmp("latest", method_name) == 0) {
         SensorData<float, time_t> latest_data = latest();
+        time_t latest_time = latest_data.fetchDateTime();
 
         // Respond with string
-        sprintf(RESPONSE_STRING, "{ \"Response\" : \"PRESSURE: %f, LIGHT LEVEL: %f, TEMPERATURE: %f\" }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature());
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"PRESSURE: %f, LIGHT LEVEL: %f, TEMPERATURE: %f, DATE/TIME: %s\" }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature(), ctime(&latest_time));
     }
 
     // REMOTE FUNCTION 2 - buffered()
