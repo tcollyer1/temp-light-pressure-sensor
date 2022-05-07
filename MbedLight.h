@@ -11,10 +11,12 @@ class MbedLight : public ILED {
     public:
         MbedLight(PinName pin, int state) : led(pin, state) {}
 
+        // Turn light on
         virtual void lightOn() {
             led = 1;
         }
 
+        // Turn light off
         virtual void lightOff() {
             led = 0;
         }

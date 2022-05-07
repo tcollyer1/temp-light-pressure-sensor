@@ -16,8 +16,8 @@ class Buffer {
     private:
         ILED &redLED;
         SensorData<float, time_t> buffer[BUFFER_SIZE]; // Array to hold buffer items
-        int front = 0, back = 0;
-        int counter = 0;
+        int front = 0, back = 0; // indexes for front and back items
+        int counter = 0; // Keeps track of No. items in buffer
         Mutex lock;
         Semaphore spaceInBuffer;
         Semaphore samplesInBuffer;

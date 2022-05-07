@@ -5,6 +5,7 @@
 
 extern NetworkInterface *_defaultSystemNetwork;
 
+// Class that deals with connecting to Azure and acquiring time
 class Azure {
     public:
         bool connect()

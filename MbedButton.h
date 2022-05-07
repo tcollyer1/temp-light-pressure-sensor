@@ -11,7 +11,7 @@ class MbedButton : public IButton {
 
     public:
         MbedButton(PinName pin) : button(pin) {}
-
+        
         virtual void waitForBtnPress() {
             button.waitForPress();
         }

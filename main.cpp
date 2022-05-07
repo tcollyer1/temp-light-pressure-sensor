@@ -52,19 +52,16 @@ float LUpper = 0.55;
 float LLower = 0.22;
 
 
-// Timers - interface and virtual functions
+/* 
+    Ticker declarations - using 
+*/
 MbedTicker tr1;
 MbedTicker tr2;
 MbedTicker tr3;
-MbedTicker tr4;
 
 ITick<std::chrono::microseconds> &timer = tr1;
 ITick<std::chrono::microseconds> &timer2 = tr2;
 ITick<std::chrono::microseconds> &timer3 = tr3;
-ITick<std::chrono::microseconds> &timer4 = tr4;
-
-
-
 
 
 // Function declarations
@@ -84,6 +81,7 @@ void set_consumer_alarm_timer_flag();
 void set_bufferFlush_flag();
 void setFlags8();
 void set_azure_consumer_alarm_flag();
+void set_azure_handler_alarm_flag();
 void bufferFlush();
 void writeToAzureBuffer();
 
@@ -158,15 +156,20 @@ void flush() {
 
         if (criticalError) {
             criticalError = false;
+            MbedTicker tr4;
+            ITick<std::chrono::microseconds> &timer4 = tr4;
+
+
             sdWrite.print_alarm();
 
-            timer4.attachFunc(&set_azure_consumer_alarm_flag, 30s);
+            timer4.attachFunc(&set_azure_consumer_alarm_flag, 30s);  // block for 30 seconds with signal-wait
             wait30Seconds();
             timer4.detachFunc();
 
-            // Restart board here
+            // Log error and restart board
             LogError("\nCould not write data to the SD card.\n");
-            mbed_reset_reboot_error_info();
+            printf("\n[?] Resetting system.\n");
+            NVIC_SystemReset();
         }
 }
 
@@ -271,10 +274,9 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     // REMOTE FUNCTION 1 - latest()
     if (strcmp("latest", method_name) == 0) {
         SensorData<float, time_t> latest_data = latest();
-        time_t latest_time = latest_data.fetchDateTime();
 
         // Respond with string
-        sprintf(RESPONSE_STRING, "{ \"Response\" : \"PRESSURE: %f, LIGHT LEVEL: %f, TEMPERATURE: %f, DATE/TIME: %s\" }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature(), ctime(&latest_time));
+        sprintf(RESPONSE_STRING, "{ \"Response\" : \"PRESSURE: %f, LIGHT LEVEL: %f, TEMPERATURE: %f\" }", latest_data.fetchPressure(), latest_data.fetchLightLevel(), latest_data.fetchTemperature());
     }
 
     // REMOTE FUNCTION 2 - buffered()
@@ -351,6 +353,7 @@ static int on_method_callback(const char* method_name, const unsigned char* payl
     return status;
 }
 
+// Function that sends readings to Azure. While loop unblocks as soon as Azure buffer is not empty.
 void send_data() {
     bool trace_on = MBED_CONF_APP_IOTHUB_CLIENT_TRACE;
     tickcounter_ms_t interval = 100;
@@ -418,7 +421,7 @@ void send_data() {
     char message[80];
     while (true) {
         if (message_received) {
-            // If we have received a message from the cloud, don't send more messages
+            // If message received from cloud, don't send more messages
             break;
         }
 
@@ -514,6 +517,7 @@ void getSensorData() {
     }
 }
 
+// Function that runs on azure_handler thread - deals with connection and sending sensor data to Azure IoT.
 void sendToAzure() {
     if (azure.connect() && azure.setTime()) {
         send_data();
@@ -522,7 +526,16 @@ void sendToAzure() {
     else {
         // Critical error
         redLED.lightOn();
-        error("\n[!] Connection to Azure failed...\n");
+        LogError("\n[!] Connection to Azure failed...\n");
+        MbedTicker tr4;
+        ITick<std::chrono::microseconds> &timer4 = tr4;
+        printf("\n[!] Critical error! [!]\n"); // alarm message
+
+        timer4.attachFunc(&set_azure_handler_alarm_flag, 30s); // block for 30 seconds with signal-wait
+        wait30Seconds();
+        timer4.detachFunc();
+        printf("\n[?] Resetting system.\n");
+        NVIC_SystemReset(); // reset board
     }
 }
 
@@ -547,21 +560,26 @@ void readBuffer() {
 
         if (criticalError) {
             criticalError = false;
+            
+            MbedTicker tr4;
+            ITick<std::chrono::microseconds> &timer4 = tr4;
             sdObj.print_alarm();
 
             timer4.attachFunc(&set_consumer_alarm_timer_flag, 30s);
             wait30Seconds();
             timer4.detachFunc();
 
+            // Log error and reset board
             LogError("\nCould not write data to the SD card.\n");
-            mbed_reset_reboot_error_info();
+            printf("\n[?] Resetting system.\n");
+            NVIC_SystemReset();
         }
     }
 }
 
 
 
-// Writes alarm message to the terminal.
+// Writes alarm message to the terminal for when sensor measurements are outside thresholds
 void writeAlarmMsg() {
     printf("\n*** [!!!] WARNING: sensor measurement outside threshold values! ***\n");
 }
@@ -632,6 +650,12 @@ void set_bufferFlush_flag() {
     azure_consumer.flags_set(6);
 }
 
+// Unblocks azure_consumer after 30s has passed - for critical error alarm
 void set_azure_consumer_alarm_flag() {
     azure_consumer.flags_set(5);
+}
+
+// Unblocks azure_handler after 30s has passed - for critical error alarm
+void set_azure_handler_alarm_flag() {
+    azure_handler.flags_set(5);
 }
