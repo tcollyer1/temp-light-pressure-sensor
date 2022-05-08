@@ -131,7 +131,7 @@ bool notWritten = false;
 SensorData<float, time_t> latest() {
     SensorData<float, time_t> latest;
     
-    latest = azureBuffer.readFromBuffer();
+    latest = azureBuffer.peekFromBuffer();
     
     return latest;
 }

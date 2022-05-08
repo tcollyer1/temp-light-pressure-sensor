@@ -103,9 +103,7 @@ class Buffer {
             }
 
             SensorData<float, time_t> itemToPeek = buffer[idx];
-
-            time_t date_time = itemToPeek.fetchDateTime();
-
+            
             return itemToPeek;
         }
 };
