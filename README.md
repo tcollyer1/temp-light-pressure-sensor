@@ -1,24 +1,11 @@
-# ELEC35X Coursework C1
+# Embedded C++ Temperature, Light & Pressure Sensor and Monitoring System
+This is a system created in Mbed Studio with C++, using a [NUCLEO-F429ZI](https://os.mbed.com/platforms/ST-Nucleo-F429ZI/) development board with a small microcontroller connected to it. This was a piece of university coursework, with the purpose of being an **environmental sensor** designed for the continuous monitoring and tracking of temperature, light and pressure levels, with internet connectivity via Microsoft Azure.
 
-This is the starter code for ELEC350/351 C1. You should use the ARMC6 compiler to build this code in Mbed Studio.
+## About the Hardware
+The Nucleo board used features a [STM32F429ZI](https://www.st.com/en/microcontrollers-microprocessors/stm32f429zi.html) microcontroller, based on an Arm Cortex-M4 processor. The board 
 
-**A pre-requisite for this is to complete the lab on networking https://github.com/UniversityOfPlymouth-Electronics/Embedded-Systems/blob/master/level6/network_programming.md**
-
-This includes watching all the videos on setting up Microsoft Azure IoT Central.
-
-
-## Using the Module Support Board
-
-Demo code has now been integrated into the module support board library.
-
-In main.cpp, you can uncomment the following two lines to test your board:
-
-```C++
-//UOP_MSB_TEST  board;  //This class is purely for testing. Do no use it otherwise!!!!!!!!!!!
-//board.test();         //Look inside here to see how this works
-```
-
-If you look inside the class member function `board.test()` you will see commented examples of how to use various aspects of the module support board, including the SD card.
-
-*Don't forget to comment our or remove these two lines before you write your own code!*
-
+## Project Features
+- The program periodically samples and buffers sensor data, using a FIFO buffer, at a fixed rate of every **10 seconds** and additionally writes buffer data to an inserted SD card each minute for sending to Azure
+- The program is **multi-threaded**, including producer and consumer threads for reading from/writing to the buffer containing the sensor data (during sample collection/SD card writes), a thread to listen for user input to prevent logged system error messages from displaying, and threads for handling sending sensor data to Azure
+- Use of classes and templates with **virtual functions** to demonstrate consideration for reusability and avoiding platform-specific functionality
+- Error handling and communication of these errors to the user (including console messages and triggering LED lights) in cases such as the buffer being full, or pressure/light/temperature readings being outside accepted thresholds
