@@ -2,7 +2,7 @@
 This is a system created in Mbed Studio with C++, using a [NUCLEO-F429ZI](https://os.mbed.com/platforms/ST-Nucleo-F429ZI/) development board with a small microcontroller connected to it. This was a piece of university coursework, with the purpose of being an **environmental sensor** designed for the continuous monitoring and tracking of temperature, light and pressure levels, with internet connectivity via Microsoft Azure.
 
 ## About the Hardware
-The Nucleo board used features a [STM32F429ZI](https://www.st.com/en/microcontrollers-microprocessors/stm32f429zi.html) microcontroller, based on an Arm Cortex-M4 processor. The board 
+The Nucleo board used features a [STM32F429ZI](https://www.st.com/en/microcontrollers-microprocessors/stm32f429zi.html) microcontroller, based on an Arm Cortex-M4 processor.
 
 ## Project Features
 - The program periodically samples and buffers sensor data, using a FIFO buffer, at a fixed rate of every **10 seconds** and additionally writes buffer data to an inserted SD card each minute for sending to Azure
