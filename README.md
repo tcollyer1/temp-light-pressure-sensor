@@ -4,7 +4,7 @@ This is a system created in Mbed Studio with C++, using a [NUCLEO-F429ZI](https:
 ## About the Hardware
 The Nucleo board used features a [STM32F429ZI](https://www.st.com/en/microcontrollers-microprocessors/stm32f429zi.html) microcontroller, based on an Arm Cortex-M4 processor. 
 
-It additionally featured an onboard **BMP280** sensor (SPI) used for detecting the temperature and pressure humidity levels; an LDR for light levels; a GPIO switch to disable console errors for a small amount of time; LEDs; ethernet support and SD card support.
+It additionally featured an onboard **BMP280** sensor (SPI) used for detecting the temperature and pressure levels; an LDR for light levels; a GPIO switch to disable console errors for a small amount of time; LEDs; ethernet support and SD card support.
 
 ## Project Features
 - The program periodically samples and buffers sensor data, using a FIFO buffer, at a fixed rate of every **10 seconds** and additionally writes buffer data to an inserted SD card each minute for sending to Azure
